@@ -140,6 +140,28 @@ body {
     font-weight: 600;
 }
 
+.always-active-badge {
+    margin-left: auto;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: rgba(0, 240, 255, 0.12);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: help;
+    white-space: nowrap;
+}
+
+.always-active-badge i {
+    font-size: 0.65rem;
+}
+
 /* Sidebar Nav */
 .sidebar-nav {
     display: flex;

@@ -614,8 +614,145 @@ function startClientTimers() {
     });
 }
 
+// ==========================================
+// 🛡️ Always-Active Background Shield Engine
+// Prevents tab sleeping, browser throttling & background disconnection
+// ==========================================
+let userExplicitlyDisconnected = false;
+let keepAliveAudioNode = null;
+let heartbeatWorker = null;
+let watchdogInterval = null;
+
+// 1. Silent Web Audio Anchor: tells Edge & Chrome that this tab has active media and MUST NOT SLEEP
+function startBackgroundAudioAnchor() {
+    try {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+        }
+        if (keepAliveAudioNode) return;
+
+        // Inaudible 100Hz sine wave through 0.00001 gain (inaudible to human ear)
+        const silentOsc = audioCtx.createOscillator();
+        const silentGain = audioCtx.createGain();
+        silentGain.gain.setValueAtTime(0.00001, audioCtx.currentTime);
+        silentOsc.frequency.setValueAtTime(100, audioCtx.currentTime);
+        silentOsc.connect(silentGain);
+        silentGain.connect(audioCtx.destination);
+        silentOsc.start();
+        keepAliveAudioNode = silentOsc;
+    } catch (e) {
+        console.warn('Background audio anchor warning:', e);
+    }
+}
+
+// 2. Web Worker Heartbeat: Web Workers run on a background OS thread and are NOT throttled like window timers
+function startHeartbeatWorker() {
+    if (heartbeatWorker) return;
+    try {
+        const workerBlob = new Blob([`
+            let interval = null;
+            self.onmessage = function(e) {
+                if (e.data === 'start') {
+                    if (!interval) {
+                        interval = setInterval(function() {
+                            self.postMessage('tick');
+                        }, 12000); // Check every 12 seconds
+                    }
+                } else if (e.data === 'stop') {
+                    if (interval) { clearInterval(interval); interval = null; }
+                }
+            };
+        `], { type: 'application/javascript' });
+
+        const blobUrl = URL.createObjectURL(workerBlob);
+        heartbeatWorker = new Worker(blobUrl);
+        heartbeatWorker.onmessage = function(e) {
+            if (e.data === 'tick') {
+                runKeepAliveWatchdog();
+            }
+        };
+        heartbeatWorker.postMessage('start');
+    } catch (err) {
+        console.warn('Web Worker unavailable, falling back to window interval:', err);
+        if (!watchdogInterval) {
+            watchdogInterval = setInterval(runKeepAliveWatchdog, 12000);
+        }
+    }
+}
+
+// 3. Keep-Alive Watchdog: checks socket state, sends IRC pings, and auto-revives connection if dropped
+async function runKeepAliveWatchdog() {
+    if (userExplicitlyDisconnected) return;
+
+    const savedUser = localStorage.getItem(getProfileKey('user')) || '';
+    const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
+    const savedChan = localStorage.getItem(getProfileKey('channel')) || '';
+    if (!savedUser || !savedOauth || !savedChan) return;
+
+    // Check if clientTmi is missing or connection has closed/closing
+    const isSocketOpen = clientTmi && typeof clientTmi.readyState === 'function' && clientTmi.readyState() === 'OPEN';
+
+    if (!isSocketOpen) {
+        console.log('[MightyStreamPulse Shield] Connection dropped or sleeping. Auto-reviving chat connection...');
+        updateStatusUI('connecting', savedChan);
+        try {
+            await connectClientTmi(savedUser, savedOauth, savedChan, true);
+        } catch (e) {
+            console.warn('[MightyStreamPulse Shield] Auto-revive attempt error:', e);
+        }
+    } else {
+        // Socket is open - send a lightweight ping to keep connection warm through NAT/routers
+        try {
+            if (typeof clientTmi.ping === 'function') {
+                clientTmi.ping().catch(() => {});
+            } else if (typeof clientTmi.raw === 'function') {
+                clientTmi.raw('PING').catch(() => {});
+            }
+        } catch (e) {}
+    }
+}
+
+// 4. Screen Wake Lock (keeps display / session awake if supported)
+async function requestScreenWakeLock() {
+    try {
+        if ('wakeLock' in navigator && navigator.wakeLock) {
+            await navigator.wakeLock.request('screen');
+        }
+    } catch (e) {}
+}
+
+// 5. Unified Start Function
+function startBackgroundKeepAlive() {
+    startBackgroundAudioAnchor();
+    startHeartbeatWorker();
+    requestScreenWakeLock();
+}
+
+// 6. Immediate Auto-Heal on Tab Visibility, Window Focus, or Network Online
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        runKeepAliveWatchdog();
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+        }
+    }
+});
+
+window.addEventListener('focus', () => {
+    runKeepAliveWatchdog();
+});
+
+window.addEventListener('online', () => {
+    console.log('[MightyStreamPulse] Network online detected. Verifying chat connection...');
+    runKeepAliveWatchdog();
+});
+
 // Connect Logic (Direct Browser Client Mode)
-async function connectClientTmi(username, oauth, channel) {
+async function connectClientTmi(username, oauth, channel, isAutoReconnect = false) {
+    userExplicitlyDisconnected = false;
+    startBackgroundKeepAlive();
+
     if (clientTmi) {
         try {
             if (clientTmi.readyState() === 'OPEN') {
@@ -631,7 +768,9 @@ async function connectClientTmi(username, oauth, channel) {
     }
     if (!token) {
         updateStatusUI('disconnected');
-        alert('Please enter your Twitch OAuth Token first!\nYou can click "Verify & Connect With Twitch API" or visit https://twitchapps.com/tmi/ to generate one.');
+        if (!isAutoReconnect) {
+            alert('Please enter your Twitch OAuth Token first!\nYou can click "Verify & Connect With Twitch API" or visit https://twitchapps.com/tmi/ to generate one.');
+        }
         return false;
     }
     if (!token.startsWith('oauth:')) token = 'oauth:' + token;
@@ -648,7 +787,9 @@ async function connectClientTmi(username, oauth, channel) {
 
     if (!user || !chan) {
         updateStatusUI('disconnected');
-        alert('Please provide your Twitch username and target channel.');
+        if (!isAutoReconnect) {
+            alert('Please provide your Twitch username and target channel.');
+        }
         return false;
     }
 
@@ -663,7 +804,9 @@ async function connectClientTmi(username, oauth, channel) {
     const tmiLib = window.tmi || (typeof tmi !== 'undefined' ? tmi : null);
     if (!tmiLib || !tmiLib.Client) {
         updateStatusUI('disconnected', chan);
-        alert('Twitch Chat engine (TMI) is not loaded. Please hard refresh (Ctrl+F5) to load the latest files.');
+        if (!isAutoReconnect) {
+            alert('Twitch Chat engine (TMI) is not loaded. Please hard refresh (Ctrl+F5) to load the latest files.');
+        }
         return false;
     }
 
@@ -673,16 +816,26 @@ async function connectClientTmi(username, oauth, channel) {
             skipUpdatingEmotesets: true
         },
         connection: {
-            reconnect: false, // Prevent infinite hanging retry loop during auth check
+            reconnect: true,
+            maxReconnectAttempts: Infinity,
+            maxReconnectInterval: 10000,
+            reconnectInterval: 2000,
+            reconnectDecay: 1.2,
             secure: true
         },
         identity: { username: user, password: token },
         channels: [chan]
     });
 
+    clientTmi.on('reconnect', () => {
+        updateStatusUI('connecting', chan);
+        console.log('[MightyStreamPulse] TMI reconnecting...');
+    });
+
     clientTmi.on('connected', () => {
         updateStatusUI('connected', chan);
         startClientTimers();
+        startBackgroundKeepAlive();
     });
 
     clientTmi.on('join', (channelName, username, self) => {
@@ -692,19 +845,24 @@ async function connectClientTmi(username, oauth, channel) {
     });
 
     clientTmi.on('disconnected', (reason) => {
-        updateStatusUI('disconnected', chan);
         Object.values(clientTimers).forEach(id => clearInterval(id));
+        if (userExplicitlyDisconnected) {
+            updateStatusUI('disconnected', chan);
+        } else {
+            updateStatusUI('connecting', chan);
+        }
     });
 
     // Capture Twitch authentication failure notices from raw messages
     clientTmi.on('raw_message', (msg1, msg2) => {
         const msg = (msg2 && (msg2.command || msg2.params)) ? msg2 : msg1;
         if (msg) {
-            const cmd = msg.command || '';
             const rawText = (msg.params ? msg.params.join(' ') : (msg.raw || '')).toLowerCase();
             if (rawText.includes('login authentication failed') || rawText.includes('improperly formatted auth') || rawText.includes('login unsuccessful') || rawText.includes('notice * :login')) {
                 authFailed = true;
+                userExplicitlyDisconnected = true;
                 updateStatusUI('disconnected', chan);
+                try { clientTmi.disconnect(); } catch (e) {}
                 if (authRejectFn) {
                     authRejectFn(new Error(`Login authentication failed. Twitch rejected the OAuth credentials for "${user}".`));
                 }
@@ -715,7 +873,9 @@ async function connectClientTmi(username, oauth, channel) {
     clientTmi.on('notice', (channel, msgid, message) => {
         if (msgid === 'msg_channel_suspended' || msgid === 'login_unsuccessful') {
             authFailed = true;
+            userExplicitlyDisconnected = true;
             updateStatusUI('disconnected', chan);
+            try { clientTmi.disconnect(); } catch (e) {}
             if (authRejectFn) {
                 authRejectFn(new Error(`Twitch error: ${message}`));
             }
@@ -804,6 +964,7 @@ async function connectClientTmi(username, oauth, channel) {
 
         updateStatusUI('connected', chan);
         startClientTimers();
+        startBackgroundKeepAlive();
 
         localStorage.setItem(getProfileKey('user'), user);
         localStorage.setItem(getProfileKey('oauth'), token);
@@ -821,7 +982,11 @@ async function connectClientTmi(username, oauth, channel) {
         updateStatusUI('disconnected', chan);
         try { await clientTmi.disconnect(); } catch (e) {}
         clientTmi = null;
-        alert(`Twitch Bot Connection Failed:\n${err.message || err}\n\nTroubleshooting:\n1. Click "Switch / Exit" in the top-right corner.\n2. Reconnect with Twitch or use "Quick Token" with your token from twitchapps.com/tmi/`);
+        if (!isAutoReconnect) {
+            alert(`Twitch Bot Connection Failed:\n${err.message || err}\n\nTroubleshooting:\n1. Click "Switch / Exit" in the top-right corner.\n2. Reconnect with Twitch or use "Quick Token" with your token from twitchapps.com/tmi/`);
+        } else {
+            console.warn('[MightyStreamPulse Shield] Background reconnect attempt:', err.message || err);
+        }
         return false;
     }
 }
@@ -1607,6 +1772,7 @@ btnConnect.addEventListener('click', async () => {
 });
 
 btnDisconnect.addEventListener('click', async () => {
+    userExplicitlyDisconnected = true;
     if (clientTmi) {
         await clientTmi.disconnect();
         clientTmi = null;
@@ -1821,5 +1987,13 @@ async function initApp() {
         connectClientTmi(savedUser, savedOauth, savedChan);
     }
 }
+
+// Ensure background keep-alive audio anchor activates on first click
+window.addEventListener('click', () => {
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+    }
+    startBackgroundKeepAlive();
+}, { once: true });
 
 initApp();
