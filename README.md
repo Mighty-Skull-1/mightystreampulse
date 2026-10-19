@@ -61,6 +61,15 @@
 - **Chat Trivia Challenge:** Broadcast trivia questions to chat; the first viewer to answer correctly in chat wins!
 - **Magic 8-Ball:** Viewers can ask the mystical 8-ball anytime using `!8ball [question]`.
 
+### 🎵 YouTube Song Requests & Live Jukebox
+- **Interactive Chat Song Requests:** Viewers can request songs in Twitch chat using `!song <youtube-link>` or `!sr <link>` (supports standard YouTube URLs, `youtu.be`, `/shorts/`, embeds, and raw video IDs).
+- **Sequential Auto-Play Jukebox:** Embedded responsive 16:9 YouTube player that auto-plays tracks in sequence and automatically transitions to the next queued song when finished (`YT.PlayerState.ENDED`).
+- **Live Now Playing Bar:** Displays the active video title, YouTube channel/artist, and which chatter requested it. Viewers can check what's playing in chat via `!song`, `!np`, or `!currentsong`.
+- **Streamer Jukebox Controls:** Complete deck with Play/Pause, Replay current song, Skip next (`!skip` or UI button), and a dedicated player volume slider.
+- **Up Next Queue & Streamer Quick-Queue:** Streamers can paste links directly to queue tracks, remove specific songs, or clear the queue. Viewers can preview the upcoming songs with `!queue` or `!songqueue`.
+- **Zero API Keys Required:** Automatic CORS metadata fetching via `noembed.com` for title and thumbnail lookup without requiring Google Cloud or YouTube Data API keys.
+- **Auto-Skip Error Handling:** If a video is region-restricted or copyright-blocked from embedding, the jukebox alerts chat and automatically moves to the next song without getting stuck.
+
 ### 🖥️ OBS Studio / Streamlabs Overlay
 - Dedicated **Browser Source Overlay** (`overlay.html`).
 - Displays animated top banners, live poll graphs, giveaway winner announcements, and stream milestones directly onto your OBS canvas.

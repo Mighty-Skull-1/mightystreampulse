@@ -59,6 +59,9 @@ function loadProfileData() {
     customCommands = JSON.parse(localStorage.getItem(getProfileKey('commands'))) || defaultCommands;
     soundboardSounds = JSON.parse(localStorage.getItem(getProfileKey('soundboard'))) || defaultSoundboard;
     soundboardVolume = parseFloat(localStorage.getItem(getProfileKey('soundboard_vol')) || '0.7');
+    songQueue = JSON.parse(localStorage.getItem(getProfileKey('song_queue'))) || [];
+    songRequestsEnabled = localStorage.getItem(getProfileKey('song_requests_enabled')) !== 'false';
+    songPlayerVolume = parseInt(localStorage.getItem(getProfileKey('song_volume')) || '80', 10);
 }
 
 // State
@@ -67,6 +70,13 @@ let timedAnnouncements = defaultTimers;
 let customCommands = defaultCommands;
 let soundboardSounds = defaultSoundboard;
 let soundboardVolume = 0.7;
+let songQueue = [];
+let currentPlayingSong = null;
+let songRequestsEnabled = true;
+let songPlayerVolume = 80;
+let ytPlayer = null;
+let ytPlayerReady = false;
+let ytPlayerState = -1;
 loadProfileData();
 
 let clientStats = { messagesSent: 0, messagesReceived: 0, activeChatters: {} };
@@ -971,7 +981,62 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
             return;
         }
 
-        // 5. Custom Commands
+        // 5. YouTube Song Requests & Jukebox Commands
+        if (!self) {
+            // Check current playing song (!song, !np, !currentsong with no parameters)
+            if (lower === '!song' || lower === '!np' || lower === '!currentsong') {
+                if (currentPlayingSong) {
+                    await sendChatMessage(`🎶 @${chatter} Now playing: "${currentPlayingSong.title}" [Requested by @${currentPlayingSong.requestedBy}]`);
+                } else {
+                    await sendChatMessage(`🎵 @${chatter} No song is currently playing. Request one using !song <youtube-link>!`);
+                }
+                return;
+            }
+
+            // Song request with link/ID (!song <link>, !sr <link>, !songrequest <link>)
+            if (lower.startsWith('!song ') || lower.startsWith('!sr ') || lower.startsWith('!songrequest ')) {
+                const songQuery = trimmed.replace(/^!(song|sr|songrequest)\s+/i, '').trim();
+                if (!songRequestsEnabled) {
+                    await sendChatMessage(`🔒 @${chatter} Song requests are currently paused by the streamer.`);
+                    return;
+                }
+                const videoId = extractYouTubeVideoId(songQuery);
+                if (!videoId) {
+                    await sendChatMessage(`⚠️ @${chatter} Invalid YouTube link. Please provide a valid YouTube link or video ID (e.g. !song https://youtu.be/...)`);
+                    return;
+                }
+                await addSongToQueue(videoId, chatter, true);
+                return;
+            }
+
+            // Check upcoming queue (!queue, !songqueue)
+            if (lower === '!queue' || lower === '!songqueue') {
+                if (songQueue.length === 0) {
+                    const npInfo = currentPlayingSong ? `Now playing: "${currentPlayingSong.title}". ` : '';
+                    await sendChatMessage(`📋 @${chatter} ${npInfo}The upcoming queue is empty! Type !song <link> to request a track!`);
+                } else {
+                    const topItems = songQueue.slice(0, 3).map((s, idx) => `#${idx + 1}: ${s.title} (@${s.requestedBy})`).join(' | ');
+                    const more = songQueue.length > 3 ? ` (+${songQueue.length - 3} more)` : '';
+                    await sendChatMessage(`📋 @${chatter} Up Next: ${topItems}${more}`);
+                }
+                return;
+            }
+
+            // Skip current song (!skip, !skipsong) - Broadcaster & Mod only
+            if (lower === '!skip' || lower === '!skipsong') {
+                const chan = (targetChannelInput.value || '').trim().toLowerCase().replace('#', '');
+                const isBroadcaster = (tags.badges && tags.badges.broadcaster) || chatterLower === chan;
+                const isMod = tags.mod || isBroadcaster;
+                if (!isMod) {
+                    await sendChatMessage(`⛔ @${chatter} Only moderators or the streamer can skip songs.`);
+                    return;
+                }
+                skipCurrentSong(chatter);
+                return;
+            }
+        }
+
+        // 6. Custom Commands
         const cmdKey = trimmed.split(' ')[0].toLowerCase();
         if (!self && customCommands && customCommands[cmdKey]) {
             await sendChatMessage(customCommands[cmdKey]);
@@ -1356,6 +1421,398 @@ document.getElementById('btnSaveCmd').addEventListener('click', () => {
     document.getElementById('newCmdName').value = '';
     document.getElementById('newCmdResp').value = '';
 });
+
+// ==========================================
+// YouTube Song Requests & Jukebox Engine
+// ==========================================
+
+function extractYouTubeVideoId(input) {
+    if (!input) return null;
+    const str = input.trim();
+    // 11-char direct video ID
+    if (/^[a-zA-Z0-9_-]{11}$/.test(str)) {
+        return str;
+    }
+    // youtu.be/<id>
+    const shortMatch = str.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+    if (shortMatch) return shortMatch[1];
+    // youtube.com/watch?v=<id>
+    const watchMatch = str.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+    if (watchMatch) return watchMatch[1];
+    // youtube.com/shorts/<id>
+    const shortsMatch = str.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/i);
+    if (shortsMatch) return shortsMatch[1];
+    // youtube.com/embed/<id>
+    const embedMatch = str.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/i);
+    if (embedMatch) return embedMatch[1];
+    // youtube.com/v/<id>
+    const vMatch = str.match(/youtube\.com\/v\/([a-zA-Z0-9_-]{11})/i);
+    if (vMatch) return vMatch[1];
+
+    return null;
+}
+
+async function fetchYouTubeMetadata(videoId) {
+    const fallback = {
+        title: `YouTube Video (${videoId})`,
+        author: 'YouTube',
+        thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+    };
+    try {
+        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+        if (!res.ok) return fallback;
+        const data = await res.json();
+        if (data && data.title) {
+            return {
+                title: data.title,
+                author: data.author_name || 'YouTube Creator',
+                thumbnail: data.thumbnail_url || fallback.thumbnail
+            };
+        }
+    } catch (e) {
+        console.warn('Could not fetch noembed metadata for video:', videoId, e);
+    }
+    return fallback;
+}
+
+async function addSongToQueue(videoId, requestedBy = 'Streamer', announceInChat = true) {
+    if (!videoId) return;
+    if (songQueue.length >= 60) {
+        if (announceInChat) {
+            await sendChatMessage(`⚠️ @${requestedBy} The song queue is full (max 60 songs). Please wait for some tracks to finish!`);
+        }
+        return;
+    }
+
+    const meta = await fetchYouTubeMetadata(videoId);
+    const item = {
+        id: 'sq_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        videoId,
+        title: meta.title,
+        author: meta.author,
+        thumbnail: meta.thumbnail,
+        requestedBy
+    };
+
+    songQueue.push(item);
+    localStorage.setItem(getProfileKey('song_queue'), JSON.stringify(songQueue));
+    renderSongQueueUI();
+
+    if (!currentPlayingSong) {
+        playNextSongInQueue();
+    } else {
+        if (announceInChat) {
+            await sendChatMessage(`🎵 Added to queue: "${item.title}" (Position #${songQueue.length}) [Req by @${requestedBy}]`);
+        }
+    }
+    return item;
+}
+
+function playNextSongInQueue() {
+    if (songQueue.length === 0) {
+        currentPlayingSong = null;
+        updateNowPlayingUI();
+        if (ytPlayer && typeof ytPlayer.stopVideo === 'function') {
+            try { ytPlayer.stopVideo(); } catch (e) {}
+        }
+        return;
+    }
+
+    currentPlayingSong = songQueue.shift();
+    localStorage.setItem(getProfileKey('song_queue'), JSON.stringify(songQueue));
+    renderSongQueueUI();
+    updateNowPlayingUI();
+
+    if (ytPlayer && ytPlayerReady) {
+        try {
+            ytPlayer.loadVideoById(currentPlayingSong.videoId);
+            ytPlayer.setVolume(songPlayerVolume);
+            ytPlayer.playVideo();
+        } catch (e) {
+            console.error('Error loading video into YT player:', e);
+        }
+    }
+}
+
+function skipCurrentSong(skippedBy = 'Streamer') {
+    if (!currentPlayingSong && songQueue.length === 0) {
+        sendChatMessage(`ℹ️ No song is currently playing in the jukebox.`);
+        return;
+    }
+    const oldTitle = currentPlayingSong ? currentPlayingSong.title : 'song';
+    playNextSongInQueue();
+    sendChatMessage(`⏭️ Skipped "${oldTitle}" by @${skippedBy}! Now playing next song.`);
+}
+
+function replayCurrentSong() {
+    if (ytPlayer && ytPlayerReady && currentPlayingSong) {
+        try {
+            ytPlayer.seekTo(0);
+            ytPlayer.playVideo();
+        } catch (e) {}
+    }
+}
+
+function toggleMusicPlayPause() {
+    if (!ytPlayer || !ytPlayerReady) {
+        if (!currentPlayingSong && songQueue.length > 0) {
+            playNextSongInQueue();
+        }
+        return;
+    }
+
+    try {
+        const state = ytPlayer.getPlayerState();
+        if (state === 1) { // 1 = playing
+            ytPlayer.pauseVideo();
+        } else {
+            if (!currentPlayingSong && songQueue.length > 0) {
+                playNextSongInQueue();
+            } else {
+                ytPlayer.playVideo();
+            }
+        }
+    } catch (e) {
+        console.warn('Play/pause toggle error:', e);
+    }
+}
+
+function removeSongFromQueue(index) {
+    if (index >= 0 && index < songQueue.length) {
+        songQueue.splice(index, 1);
+        localStorage.setItem(getProfileKey('song_queue'), JSON.stringify(songQueue));
+        renderSongQueueUI();
+    }
+}
+
+function clearSongQueue() {
+    songQueue = [];
+    localStorage.setItem(getProfileKey('song_queue'), JSON.stringify(songQueue));
+    renderSongQueueUI();
+}
+
+function updateNowPlayingUI() {
+    const npTitle = document.getElementById('npTitle');
+    const npAuthor = document.getElementById('npAuthor');
+    const npRequester = document.getElementById('npRequester');
+    const placeholder = document.getElementById('ytPlayerPlaceholder');
+
+    if (!npTitle) return;
+
+    if (currentPlayingSong) {
+        npTitle.textContent = currentPlayingSong.title;
+        npAuthor.textContent = currentPlayingSong.author || 'YouTube';
+        npRequester.textContent = `Requested by @${currentPlayingSong.requestedBy}`;
+        if (placeholder) placeholder.style.display = 'none';
+    } else {
+        npTitle.textContent = 'No song currently playing';
+        npAuthor.textContent = 'YouTube';
+        npRequester.textContent = 'Waiting for requests...';
+        if (placeholder) placeholder.style.display = 'flex';
+    }
+}
+
+function updatePlayPauseButton(isPlaying) {
+    const btn = document.getElementById('btnMusicPlayPause');
+    if (!btn) return;
+    if (isPlaying) {
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        btn.title = 'Pause Playback';
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+        btn.title = 'Resume Playback';
+    }
+}
+
+function renderSongQueueUI() {
+    const countEl = document.getElementById('queueCountNumber');
+    const container = document.getElementById('queueItemsContainer');
+    if (countEl) countEl.textContent = songQueue.length;
+    if (!container) return;
+
+    container.innerHTML = '';
+    if (songQueue.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 24px 12px; text-align: center; color: var(--text-muted);">
+                <i class="fa-solid fa-music" style="font-size: 2rem; margin-bottom: 8px; opacity: 0.5;"></i>
+                <p>The queue is empty. Chatters can request songs using <code>!song &lt;link&gt;</code>!</p>
+            </div>
+        `;
+        return;
+    }
+
+    songQueue.forEach((song, idx) => {
+        const item = document.createElement('div');
+        item.className = 'queue-item-card';
+        item.innerHTML = `
+            <span class="queue-num">#${idx + 1}</span>
+            <img class="queue-thumb" src="${song.thumbnail || `https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg`}" alt="Thumbnail" onerror="this.src='https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg'">
+            <div class="queue-info">
+                <div class="queue-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
+                <div class="queue-meta">
+                    <span>${escapeHtml(song.author || 'YouTube')}</span> &bull; 
+                    <span style="color: #00f0ff;">@${escapeHtml(song.requestedBy)}</span>
+                </div>
+            </div>
+            <div class="queue-actions">
+                <button class="queue-del-btn" title="Remove song from queue" data-index="${idx}">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        `;
+
+        item.querySelector('.queue-del-btn').addEventListener('click', () => {
+            removeSongFromQueue(idx);
+        });
+
+        container.appendChild(item);
+    });
+}
+
+function initYouTubePlayer() {
+    if (ytPlayer || !window.YT || !window.YT.Player) return;
+
+    try {
+        ytPlayer = new window.YT.Player('ytPlayerDiv', {
+            height: '100%',
+            width: '100%',
+            playerVars: {
+                autoplay: 1,
+                controls: 1,
+                rel: 0,
+                modestbranding: 1,
+                enablejsapi: 1,
+                origin: window.location.origin
+            },
+            events: {
+                onReady: () => {
+                    ytPlayerReady = true;
+                    if (typeof ytPlayer.setVolume === 'function') {
+                        ytPlayer.setVolume(songPlayerVolume);
+                    }
+                    if (currentPlayingSong) {
+                        ytPlayer.loadVideoById(currentPlayingSong.videoId);
+                    } else if (songQueue.length > 0) {
+                        playNextSongInQueue();
+                    }
+                },
+                onStateChange: (event) => {
+                    ytPlayerState = event.data;
+                    if (event.data === window.YT.PlayerState.PLAYING) {
+                        updatePlayPauseButton(true);
+                    } else if (event.data === window.YT.PlayerState.PAUSED) {
+                        updatePlayPauseButton(false);
+                    } else if (event.data === window.YT.PlayerState.ENDED) {
+                        updatePlayPauseButton(false);
+                        playNextSongInQueue();
+                    }
+                },
+                onError: (event) => {
+                    console.warn('YouTube Player error code:', event.data);
+                    const title = currentPlayingSong ? currentPlayingSong.title : 'requested video';
+                    sendChatMessage(`⚠️ Video "${title}" cannot be played (embedding restricted or unavailable). Skipping to next track...`);
+                    playNextSongInQueue();
+                }
+            }
+        });
+    } catch (e) {
+        console.warn('Error instantiating YT.Player:', e);
+    }
+}
+
+// Global hook for YouTube IFrame API
+window.onYouTubeIframeAPIReady = function() {
+    initYouTubePlayer();
+};
+
+if (window.YT && window.YT.Player) {
+    initYouTubePlayer();
+}
+
+function setupMusicTabEventListeners() {
+    const btnPlayPause = document.getElementById('btnMusicPlayPause');
+    if (btnPlayPause) {
+        btnPlayPause.addEventListener('click', toggleMusicPlayPause);
+    }
+
+    const btnSkip = document.getElementById('btnMusicSkip');
+    if (btnSkip) {
+        btnSkip.addEventListener('click', () => skipCurrentSong('Streamer'));
+    }
+
+    const btnReplay = document.getElementById('btnMusicReplay');
+    if (btnReplay) {
+        btnReplay.addEventListener('click', replayCurrentSong);
+    }
+
+    const volSlider = document.getElementById('musicVolumeSlider');
+    const volVal = document.getElementById('musicVolVal');
+    const volIcon = document.getElementById('musicVolIcon');
+    if (volSlider) {
+        volSlider.value = songPlayerVolume;
+        if (volVal) volVal.textContent = songPlayerVolume + '%';
+        volSlider.addEventListener('input', (e) => {
+            songPlayerVolume = parseInt(e.target.value, 10);
+            if (volVal) volVal.textContent = songPlayerVolume + '%';
+            if (ytPlayer && ytPlayerReady && typeof ytPlayer.setVolume === 'function') {
+                ytPlayer.setVolume(songPlayerVolume);
+            }
+            if (volIcon) {
+                if (songPlayerVolume === 0) {
+                    volIcon.className = 'fa-solid fa-volume-xmark';
+                } else if (songPlayerVolume < 50) {
+                    volIcon.className = 'fa-solid fa-volume-low';
+                } else {
+                    volIcon.className = 'fa-solid fa-volume-high';
+                }
+            }
+            localStorage.setItem(getProfileKey('song_volume'), songPlayerVolume.toString());
+        });
+    }
+
+    const reqToggle = document.getElementById('songRequestsToggle');
+    if (reqToggle) {
+        reqToggle.checked = songRequestsEnabled;
+        reqToggle.addEventListener('change', (e) => {
+            songRequestsEnabled = e.target.checked;
+            localStorage.setItem(getProfileKey('song_requests_enabled'), songRequestsEnabled.toString());
+        });
+    }
+
+    const btnClear = document.getElementById('btnClearSongQueue');
+    if (btnClear) {
+        btnClear.addEventListener('click', () => {
+            if (songQueue.length === 0) return alert('Queue is already empty.');
+            if (confirm('Clear all upcoming songs from the queue?')) {
+                clearSongQueue();
+            }
+        });
+    }
+
+    const manualInput = document.getElementById('manualSongInput');
+    const btnManualAdd = document.getElementById('btnManualAddSong');
+    const handleManualAdd = async () => {
+        if (!manualInput) return;
+        const val = manualInput.value.trim();
+        if (!val) return alert('Please enter a YouTube video URL or ID.');
+        const vidId = extractYouTubeVideoId(val);
+        if (!vidId) return alert('Invalid YouTube URL or ID. Please check the link and try again.');
+        manualInput.value = '';
+        await addSongToQueue(vidId, 'Streamer', false);
+    };
+
+    if (btnManualAdd) {
+        btnManualAdd.addEventListener('click', handleManualAdd);
+    }
+    if (manualInput) {
+        manualInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleManualAdd();
+            }
+        });
+    }
+}
 
 // Chat Drawer Controls
 btnToggleChat.addEventListener('click', () => {
@@ -1968,6 +2425,8 @@ async function checkOAuthRedirect() {
                     renderTimers(timedAnnouncements);
                     renderCommands(customCommands);
                     renderSoundboard();
+                    renderSongQueueUI();
+                    updateNowPlayingUI();
 
                     await connectClientTmi(username, formattedToken, username);
                     return true;
@@ -1997,6 +2456,9 @@ async function initApp() {
     renderTimers(timedAnnouncements);
     renderCommands(customCommands);
     renderSoundboard();
+    setupMusicTabEventListeners();
+    renderSongQueueUI();
+    updateNowPlayingUI();
 
     const active = allProfiles.find(p => p.id === currentProfileId);
     if (active) {

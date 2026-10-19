@@ -37,6 +37,7 @@
             <!-- Navigation Tabs -->
             <nav class="sidebar-nav">
                 <button class="nav-btn active" data-tab="tab-deck"><i class="fa-solid fa-gamepad"></i> Stream Deck</button>
+                <button class="nav-btn" data-tab="tab-music"><i class="fa-solid fa-music"></i> Song Requests</button>
                 <button class="nav-btn" data-tab="tab-interactive"><i class="fa-solid fa-dice"></i> Mini-Games & Polls</button>
                 <button class="nav-btn" data-tab="tab-mod"><i class="fa-solid fa-shield-halved"></i> Quick Mod Desk</button>
                 <button class="nav-btn" data-tab="tab-timers"><i class="fa-solid fa-clock"></i> Timed Announcements</button>
@@ -208,6 +209,93 @@
                             <div class="card-box">
                                 <h3><i class="fa-solid fa-bowling-ball" style="color: #9146ff;"></i> Magic 8-Ball</h3>
                                 <p class="card-sub">Always active! Viewers can type <code>!8ball [question]</code> in chat anytime to ask the mystical 8-ball fortunes!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Song Requests & YouTube Jukebox -->
+                <div class="tab-content" id="tab-music">
+                    <div class="panel-inner">
+                        <div class="section-banner">
+                            <div>
+                                <h2><i class="fa-solid fa-music" style="color: #9146ff;"></i> YouTube Song Requests & Jukebox</h2>
+                                <p>Live stream music player. Chatters can request songs via <code>!song [link]</code> or <code>!sr [link]</code>!</p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <label class="music-toggle-label" title="Enable or pause viewer !song requests">
+                                    <input type="checkbox" id="songRequestsToggle" checked>
+                                    <span class="music-toggle-text"><i class="fa-solid fa-users"></i> Requests Active</span>
+                                </label>
+                                <button id="btnClearSongQueue" class="btn btn-secondary" title="Remove all upcoming songs from queue"><i class="fa-solid fa-trash-can"></i> Clear Queue</button>
+                            </div>
+                        </div>
+
+                        <div class="music-dashboard-grid">
+                            <!-- Left: Video Player & Jukebox Deck -->
+                            <div class="music-player-panel">
+                                <!-- Responsive 16:9 Player Window -->
+                                <div class="yt-player-wrapper">
+                                    <div id="ytPlayerDiv"></div>
+                                    <div id="ytPlayerPlaceholder" class="yt-player-idle-overlay">
+                                        <i class="fa-brands fa-youtube" style="font-size: 3rem; color: #ff0000; margin-bottom: 12px;"></i>
+                                        <h4>Jukebox Idle</h4>
+                                        <p>Queue up a song below or tell chat to type <code>!song &lt;link&gt;</code>!</p>
+                                    </div>
+                                </div>
+
+                                <!-- Now Playing Info Strip -->
+                                <div class="now-playing-strip">
+                                    <div class="np-badge">NOW PLAYING</div>
+                                    <div class="np-details">
+                                        <div class="np-title" id="npTitle">No song currently playing</div>
+                                        <div class="np-sub"><span id="npAuthor">YouTube</span> &bull; <span id="npRequester" style="color: #00f0ff;">Waiting for requests...</span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Playback Controls Deck -->
+                                <div class="music-controls-deck">
+                                    <button class="btn btn-secondary btn-music-ctrl" id="btnMusicPlayPause" title="Play / Pause"><i class="fa-solid fa-play"></i></button>
+                                    <button class="btn btn-secondary btn-music-ctrl" id="btnMusicSkip" title="Skip to Next Song"><i class="fa-solid fa-forward-step"></i> Skip</button>
+                                    <button class="btn btn-secondary btn-music-ctrl" id="btnMusicReplay" title="Replay Current Song"><i class="fa-solid fa-rotate-left"></i></button>
+                                    
+                                    <div class="music-vol-control">
+                                        <i class="fa-solid fa-volume-high" id="musicVolIcon"></i>
+                                        <input type="range" id="musicVolumeSlider" min="0" max="100" value="80" title="Player Volume">
+                                        <span id="musicVolVal">80%</span>
+                                    </div>
+                                </div>
+
+                                <!-- Manual Add Song Card -->
+                                <div class="manual-add-card">
+                                    <h4><i class="fa-solid fa-plus-circle" style="color: #00f0ff;"></i> Streamer Quick-Queue</h4>
+                                    <div class="manual-add-row">
+                                        <input type="text" id="manualSongInput" placeholder="Paste YouTube link (e.g. https://youtu.be/...) or video ID">
+                                        <button id="btnManualAddSong" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Queue</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Queue List & Commands Guide -->
+                            <div class="music-queue-panel">
+                                <div class="queue-header-row">
+                                    <h3>Up Next Queue (<span id="queueCountNumber">0</span>)</h3>
+                                </div>
+
+                                <div class="queue-items-container" id="queueItemsContainer">
+                                    <!-- Dynamic Song Queue Cards -->
+                                </div>
+
+                                <!-- Chat Commands Cheat-Sheet Box -->
+                                <div class="music-commands-guide">
+                                    <h4><i class="fa-solid fa-terminal" style="color: var(--primary);"></i> Viewer Chat Commands</h4>
+                                    <ul>
+                                        <li><code>!song &lt;link&gt;</code> or <code>!sr &lt;link&gt;</code> &mdash; Queue a YouTube song</li>
+                                        <li><code>!song</code> or <code>!np</code> &mdash; Check currently playing song</li>
+                                        <li><code>!queue</code> or <code>!songqueue</code> &mdash; See next songs in queue</li>
+                                        <li><code>!skip</code> &mdash; Skip current song (Mods & Streamer only)</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -656,6 +744,8 @@
         </div>
     </div>
 
+    <!-- YouTube IFrame Player API for live Song Requests & Jukebox -->
+    <script src="https://www.youtube.com/iframe_api"></script>
     <!-- TMI.js official browser bundle hosted locally for zero CORS or CDN block issues -->
     <script src="tmi.min.js"></script>
     <script src="app.js"></script>
