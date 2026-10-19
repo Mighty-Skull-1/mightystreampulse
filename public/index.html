@@ -92,6 +92,11 @@
                 </div>
 
                 <div class="top-controls">
+                    <div class="user-profile-badge" id="userProfileBadge" title="Current Active Streamer Profile">
+                        <i class="fa-solid fa-circle-user"></i>
+                        <span id="activeAccountName">Default Profile</span>
+                        <button id="btnSwitchAccount" class="btn-text" title="Switch or Create Account"><i class="fa-solid fa-right-left"></i> Switch</button>
+                    </div>
                     <button id="btnHypeTrain" class="btn btn-hype"><i class="fa-solid fa-wand-magic-sparkles"></i> Hype Train Alert</button>
                     <button id="btnToggleChat" class="btn btn-secondary btn-icon" title="Toggle Chat Panel"><i class="fa-solid fa-comments"></i></button>
                 </div>
@@ -502,6 +507,50 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="btnCancelCmdModal">Cancel</button>
                 <button class="btn btn-primary" id="btnSaveCmdModal"><i class="fa-solid fa-check"></i> Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Account Login & Profile Management -->
+    <div class="modal-overlay" id="accountModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-lock"></i> Streamer Account Profiles</h3>
+                <button class="modal-close" id="btnCloseAccountModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
+                    Each streamer gets their own private workspace with separated buttons, timers, chat commands, and bot credentials.
+                </p>
+
+                <!-- Profile Switcher List -->
+                <div class="form-group">
+                    <label>Switch to Existing Profile</label>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="profileSelectDropdown" style="flex: 1;"></select>
+                        <button id="btnLoadProfile" class="btn btn-primary"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; margin: 18px 0; color: #555;">
+                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+                    <span style="padding: 0 10px; font-size: 0.75rem; text-transform: uppercase;">OR CREATE NEW PROFILE</span>
+                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+                </div>
+
+                <!-- Create Profile Form -->
+                <div class="form-group">
+                    <label>Profile / Streamer Name</label>
+                    <input type="text" id="newProfileName" placeholder="e.g. MightySkull or PlayerOne">
+                </div>
+                <div class="form-group">
+                    <label>Twitch Channel Name</label>
+                    <input type="text" id="newProfileChannel" placeholder="e.g. mightyskull">
+                </div>
+                <button id="btnCreateProfile" class="btn btn-secondary btn-full"><i class="fa-solid fa-plus"></i> Create New Profile</button>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelAccountModal">Close</button>
             </div>
         </div>
     </div>

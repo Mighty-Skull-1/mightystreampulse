@@ -326,6 +326,41 @@ body {
     gap: 10px;
 }
 
+.user-profile-badge {
+    background: #1c1c24;
+    border: 1px solid var(--border-subtle);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-profile-badge i {
+    color: var(--primary);
+}
+
+.btn-text {
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+    margin-left: 4px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+}
+
+.btn-text:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
 .btn-hype {
     background: var(--hype-gradient);
     color: #fff;

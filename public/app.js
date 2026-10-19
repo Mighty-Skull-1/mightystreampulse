@@ -24,10 +24,29 @@ const defaultCommands = {
     '!game': '🎮 Currently grinding games with chat! Drop suggestions anytime.'
 };
 
+// Multi-Streamer Profile Management System
+let currentProfileId = localStorage.getItem('msp_active_profile') || 'default';
+let allProfiles = JSON.parse(localStorage.getItem('msp_profiles_list')) || [
+    { id: 'default', name: 'My Streamer Profile', channel: '' }
+];
+
+function getProfileKey(key) {
+    return `msp_${currentProfileId}_${key}`;
+}
+
+// Load data strictly for the active profile
+function loadProfileData() {
+    deckButtons = JSON.parse(localStorage.getItem(getProfileKey('buttons'))) || defaultButtons;
+    timedAnnouncements = JSON.parse(localStorage.getItem(getProfileKey('timers'))) || defaultTimers;
+    customCommands = JSON.parse(localStorage.getItem(getProfileKey('commands'))) || defaultCommands;
+}
+
 // State
-let deckButtons = JSON.parse(localStorage.getItem('msp_buttons')) || defaultButtons;
-let timedAnnouncements = JSON.parse(localStorage.getItem('msp_timers')) || defaultTimers;
-let customCommands = JSON.parse(localStorage.getItem('msp_commands')) || defaultCommands;
+let deckButtons = defaultButtons;
+let timedAnnouncements = defaultTimers;
+let customCommands = defaultCommands;
+loadProfileData();
+
 let clientStats = { messagesSent: 0, messagesReceived: 0, activeChatters: {} };
 let ttsEnabled = false;
 
@@ -239,7 +258,7 @@ function renderDeck() {
         delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             deckButtons.splice(index, 1);
-            localStorage.setItem('msp_buttons', JSON.stringify(deckButtons));
+            localStorage.setItem(getProfileKey('buttons'), JSON.stringify(deckButtons));
             renderDeck();
         });
 
@@ -425,9 +444,17 @@ async function connectClientTmi(username, oauth, channel) {
 
     try {
         await clientTmi.connect();
-        localStorage.setItem('msp_user', user);
-        localStorage.setItem('msp_oauth', token);
-        localStorage.setItem('msp_channel', chan);
+        localStorage.setItem(getProfileKey('user'), user);
+        localStorage.setItem(getProfileKey('oauth'), token);
+        localStorage.setItem(getProfileKey('channel'), chan);
+
+        // Update profile in list
+        const pIdx = allProfiles.findIndex(p => p.id === currentProfileId);
+        if (pIdx !== -1) {
+            allProfiles[pIdx].channel = chan;
+            localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
+        }
+
         return true;
     } catch (err) {
         updateStatusUI('disconnected');
@@ -621,7 +648,7 @@ btnSaveTimerModal.addEventListener('click', async () => {
         });
     }
 
-    localStorage.setItem('msp_timers', JSON.stringify(timedAnnouncements));
+    localStorage.setItem(getProfileKey('timers'), JSON.stringify(timedAnnouncements));
     renderTimers(timedAnnouncements);
     startClientTimers();
     closeTimerModal();
@@ -661,7 +688,7 @@ function renderTimers(timers) {
         card.querySelector('.del-btn').addEventListener('click', () => {
             if (confirm(`Delete the "${t.name}" reminder?`)) {
                 timedAnnouncements.splice(idx, 1);
-                localStorage.setItem('msp_timers', JSON.stringify(timedAnnouncements));
+                localStorage.setItem(getProfileKey('timers'), JSON.stringify(timedAnnouncements));
                 renderTimers(timedAnnouncements);
                 startClientTimers();
             }
@@ -670,7 +697,7 @@ function renderTimers(timers) {
         const toggle = card.querySelector('input[type="checkbox"]');
         toggle.addEventListener('change', (e) => {
             timedAnnouncements[idx].enabled = e.target.checked;
-            localStorage.setItem('msp_timers', JSON.stringify(timedAnnouncements));
+            localStorage.setItem(getProfileKey('timers'), JSON.stringify(timedAnnouncements));
             startClientTimers();
         });
 
@@ -710,7 +737,7 @@ btnSaveCmdModal.addEventListener('click', () => {
 
     if (origCmd && origCmd !== newCmd) delete customCommands[origCmd];
     customCommands[newCmd] = newResp;
-    localStorage.setItem('msp_commands', JSON.stringify(customCommands));
+    localStorage.setItem(getProfileKey('commands'), JSON.stringify(customCommands));
     renderCommands(customCommands);
     closeCmdModal();
 });
@@ -735,7 +762,7 @@ function renderCommands(commands) {
         row.querySelector('.del-cmd').addEventListener('click', () => {
             if (confirm(`Delete ${cmd}?`)) {
                 delete customCommands[cmd];
-                localStorage.setItem('msp_commands', JSON.stringify(customCommands));
+                localStorage.setItem(getProfileKey('commands'), JSON.stringify(customCommands));
                 renderCommands(customCommands);
             }
         });
@@ -751,7 +778,7 @@ document.getElementById('btnSaveCmd').addEventListener('click', () => {
     if (!cmd.startsWith('!')) cmd = '!' + cmd;
 
     customCommands[cmd] = resp;
-    localStorage.setItem('msp_commands', JSON.stringify(customCommands));
+    localStorage.setItem(getProfileKey('commands'), JSON.stringify(customCommands));
     renderCommands(customCommands);
     document.getElementById('newCmdName').value = '';
     document.getElementById('newCmdResp').value = '';
@@ -794,7 +821,7 @@ document.getElementById('btnConfirmAdd').addEventListener('click', () => {
     if (!title || !message) return alert('Fill in both title and message.');
 
     deckButtons.push({ id: 'btn_' + Date.now(), title, category, icon: 'fa-solid fa-bolt', message });
-    localStorage.setItem('msp_buttons', JSON.stringify(deckButtons));
+    localStorage.setItem(getProfileKey('buttons'), JSON.stringify(deckButtons));
     renderDeck();
     addBtnModal.classList.remove('open');
     document.getElementById('modalBtnTitle').value = '';
@@ -832,21 +859,100 @@ btnDisconnect.addEventListener('click', async () => {
     try { await fetch('/api/disconnect', { method: 'POST' }); } catch (e) {}
 });
 
+// Profile Switcher Modal & Account Management
+const accountModal = document.getElementById('accountModal');
+const btnSwitchAccount = document.getElementById('btnSwitchAccount');
+const btnCloseAccountModal = document.getElementById('btnCloseAccountModal');
+const btnCancelAccountModal = document.getElementById('btnCancelAccountModal');
+const profileSelectDropdown = document.getElementById('profileSelectDropdown');
+const btnLoadProfile = document.getElementById('btnLoadProfile');
+const newProfileName = document.getElementById('newProfileName');
+const newProfileChannel = document.getElementById('newProfileChannel');
+const btnCreateProfile = document.getElementById('btnCreateProfile');
+const activeAccountName = document.getElementById('activeAccountName');
+
+function updateProfilesDropdown() {
+    profileSelectDropdown.innerHTML = '';
+    allProfiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name + (p.channel ? ` (#${p.channel})` : '');
+        if (p.id === currentProfileId) opt.selected = true;
+        profileSelectDropdown.appendChild(opt);
+    });
+
+    const active = allProfiles.find(p => p.id === currentProfileId);
+    if (active) activeAccountName.textContent = active.name;
+}
+
+btnSwitchAccount.addEventListener('click', () => {
+    updateProfilesDropdown();
+    accountModal.classList.add('open');
+});
+btnCloseAccountModal.addEventListener('click', () => accountModal.classList.remove('open'));
+btnCancelAccountModal.addEventListener('click', () => accountModal.classList.remove('open'));
+
+btnLoadProfile.addEventListener('click', async () => {
+    const selectedId = profileSelectDropdown.value;
+    if (selectedId === currentProfileId) {
+        accountModal.classList.remove('open');
+        return;
+    }
+
+    if (clientTmi) {
+        try { await clientTmi.disconnect(); } catch (e) {}
+        clientTmi = null;
+        updateStatusUI('disconnected');
+    }
+
+    currentProfileId = selectedId;
+    localStorage.setItem('msp_active_profile', currentProfileId);
+    loadProfileData();
+    accountModal.classList.remove('open');
+    initApp();
+});
+
+btnCreateProfile.addEventListener('click', () => {
+    const name = newProfileName.value.trim();
+    const chan = newProfileChannel.value.trim().toLowerCase().replace('#', '');
+    if (!name) return alert('Please enter a profile name');
+
+    const newId = 'prof_' + Date.now();
+    allProfiles.push({ id: newId, name, channel: chan });
+    localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
+
+    currentProfileId = newId;
+    localStorage.setItem('msp_active_profile', currentProfileId);
+
+    if (chan) {
+        localStorage.setItem(getProfileKey('channel'), chan);
+    }
+
+    loadProfileData();
+    newProfileName.value = '';
+    newProfileChannel.value = '';
+    accountModal.classList.remove('open');
+    initApp();
+});
+
 // Load Saved LocalStorage Credentials
 function initApp() {
+    loadProfileData();
     renderDeck();
     renderTimers(timedAnnouncements);
     renderCommands(customCommands);
+    updateProfilesDropdown();
 
-    const savedUser = localStorage.getItem('msp_user');
-    const savedOauth = localStorage.getItem('msp_oauth');
-    const savedChan = localStorage.getItem('msp_channel');
+    const savedUser = localStorage.getItem(getProfileKey('user')) || '';
+    const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
+    const savedChan = localStorage.getItem(getProfileKey('channel')) || '';
 
-    if (savedUser) botUsernameInput.value = savedUser;
-    if (savedChan) targetChannelInput.value = savedChan;
-    if (savedOauth) oauthTokenInput.placeholder = 'oauth:•••••••• (saved locally)';
+    botUsernameInput.value = savedUser;
+    targetChannelInput.value = savedChan;
+    oauthTokenInput.value = '';
+    oauthTokenInput.placeholder = savedOauth ? 'oauth:•••••••• (saved for this profile)' : 'oauth:••••••••••••••••';
 
-    // Auto-connect if credentials exist
+    // Auto-connect if credentials exist for this profile
     if (savedUser && savedOauth && savedChan) {
         connectClientTmi(savedUser, savedOauth, savedChan);
     }
