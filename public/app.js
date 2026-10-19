@@ -1569,6 +1569,138 @@ if (soundboardVolumeInput) {
     });
 }
 
+// ==========================================
+// Channel & Streamer Profile Quick Edit Modal
+// ==========================================
+const channelEditModal = document.getElementById('channelEditModal');
+const btnEditChannelHeader = document.getElementById('btnEditChannelHeader');
+const btnCloseChannelModal = document.getElementById('btnCloseChannelModal');
+const btnCancelChannelModal = document.getElementById('btnCancelChannelModal');
+const btnSaveChannelModal = document.getElementById('btnSaveChannelModal');
+const modalInputChannel = document.getElementById('modalInputChannel');
+const modalInputProfileName = document.getElementById('modalInputProfileName');
+
+function openChannelEditModal() {
+    if (!channelEditModal) return;
+    const active = allProfiles.find(p => p.id === currentProfileId);
+    const savedChan = localStorage.getItem(getProfileKey('channel')) || (active ? active.channel : '') || '';
+    const savedProfileName = (active ? active.name : '') || savedChan || 'Mighty Streamer';
+
+    if (modalInputChannel) modalInputChannel.value = savedChan;
+    if (modalInputProfileName) modalInputProfileName.value = savedProfileName;
+
+    channelEditModal.classList.add('open');
+    setTimeout(() => {
+        if (modalInputChannel) modalInputChannel.focus();
+    }, 50);
+}
+
+function closeChannelEditModal() {
+    if (channelEditModal) channelEditModal.classList.remove('open');
+}
+
+if (btnEditChannelHeader) {
+    btnEditChannelHeader.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openChannelEditModal();
+    });
+}
+
+if (headerChannel) {
+    headerChannel.addEventListener('click', () => {
+        openChannelEditModal();
+    });
+}
+
+if (activeAccountName) {
+    activeAccountName.style.cursor = 'pointer';
+    activeAccountName.title = 'Click to edit profile display name';
+    activeAccountName.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openChannelEditModal();
+    });
+}
+
+if (btnCloseChannelModal) btnCloseChannelModal.addEventListener('click', closeChannelEditModal);
+if (btnCancelChannelModal) btnCancelChannelModal.addEventListener('click', closeChannelEditModal);
+
+if (channelEditModal) {
+    channelEditModal.addEventListener('click', (e) => {
+        if (e.target === channelEditModal) closeChannelEditModal();
+    });
+}
+
+[modalInputChannel, modalInputProfileName].forEach(input => {
+    if (input) {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (btnSaveChannelModal) btnSaveChannelModal.click();
+            }
+        });
+    }
+});
+
+if (btnSaveChannelModal) {
+    btnSaveChannelModal.addEventListener('click', async () => {
+        const rawChan = modalInputChannel.value.trim();
+        const newChan = sanitizeChannelName(rawChan);
+        const newName = modalInputProfileName.value.trim() || newChan;
+
+        if (!newChan) {
+            alert('Please enter a valid Twitch channel name.');
+            if (modalInputChannel) modalInputChannel.focus();
+            return;
+        }
+
+        const oldChan = sanitizeChannelName(localStorage.getItem(getProfileKey('channel')) || '');
+
+        // Save channel and profile name
+        localStorage.setItem(getProfileKey('channel'), newChan);
+
+        // Update profile in allProfiles list
+        const pIdx = allProfiles.findIndex(p => p.id === currentProfileId);
+        if (pIdx !== -1) {
+            allProfiles[pIdx].channel = newChan;
+            allProfiles[pIdx].name = newName;
+            localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
+        }
+
+        // Update UI elements
+        headerChannel.textContent = '#' + newChan;
+        if (activeAccountName) activeAccountName.textContent = newName;
+        if (targetChannelInput) targetChannelInput.value = newChan;
+
+        // If clientTmi is currently connected and channel changed, switch channels live
+        if (clientTmi && oldChan && oldChan !== newChan) {
+            try {
+                if (typeof clientTmi.part === 'function' && typeof clientTmi.join === 'function') {
+                    await clientTmi.part(oldChan).catch(() => {});
+                    await clientTmi.join(newChan);
+                    addChatMessage({
+                        username: 'MightyStreamPulse Bot',
+                        message: `🔄 Switched target channel from #${oldChan} to #${newChan}!`,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        color: '#00f0ff',
+                        badges: ['bot']
+                    });
+                } else {
+                    const user = localStorage.getItem(getProfileKey('user')) || newChan;
+                    const oauth = localStorage.getItem(getProfileKey('oauth')) || '';
+                    if (oauth) connectClientTmi(user, oauth, newChan);
+                }
+            } catch (err) {
+                console.warn('Channel switch error, reconnecting:', err);
+                const user = localStorage.getItem(getProfileKey('user')) || newChan;
+                const oauth = localStorage.getItem(getProfileKey('oauth')) || '';
+                if (oauth) connectClientTmi(user, oauth, newChan);
+            }
+        }
+
+        closeChannelEditModal();
+    });
+}
+
 // Credentials & Connections
 btnConnect.addEventListener('click', async () => {
     let username = botUsernameInput.value.trim();
