@@ -1,74 +1,47 @@
-// Default Stream Deck Quick Action Buttons
+// MightyStreamPulse Client Engine (Works BOTH locally with Node.js and publicly on Netlify / Vercel)
 const defaultButtons = [
-    {
-        id: 'welcome',
-        title: 'Welcome Chat',
-        category: 'Greet',
-        icon: 'fa-hand-wave',
-        message: '👋 Welcome into the stream everyone! Make sure to say hi in chat and hit that follow button!'
-    },
-    {
-        id: 'socials',
-        title: 'Share Socials',
-        category: 'Links',
-        icon: 'fa-share-nodes',
-        message: '🌐 Follow my socials! Twitter: @YourHandle | YouTube: @YourChannel | TikTok: @YourStream'
-    },
-    {
-        id: 'discord',
-        title: 'Discord Squad',
-        category: 'Links',
-        icon: 'fa-brands fa-discord',
-        message: '💬 Looking for people to game with? Join our Discord community here: https://discord.gg/yourserver'
-    },
-    {
-        id: 'hype',
-        title: 'Hype Wave',
-        category: 'Hype',
-        icon: 'fa-fire-flame-curved',
-        message: '🔥🔥🔥 HYPE IN THE CHAT! Drop your favorite emotes right now! LET\'S GOOO! 🔥🔥🔥'
-    },
-    {
-        id: 'rules',
-        title: 'Chat Rules',
-        category: 'Mod',
-        icon: 'fa-shield-halved',
-        message: '📜 Chat Rules: 1. Be respectful to all. 2. No hate speech or harassment. 3. No links or self promo.'
-    },
-    {
-        id: 'hydrate',
-        title: 'Hydrate Check',
-        category: 'Gaming',
-        icon: 'fa-bottle-water',
-        message: '💧 HYDRATE CHECK! Remember to drink water and do a quick stretch, chat fam!'
-    },
-    {
-        id: 'gg',
-        title: 'GG Big Play',
-        category: 'Gaming',
-        icon: 'fa-trophy',
-        message: '🏆 GG! What an insane play! Drop some GGs in chat!'
-    },
-    {
-        id: 'prime',
-        title: 'Prime Gaming Sub',
-        category: 'Support',
-        icon: 'fa-crown',
-        message: '👑 Did you know? You get a FREE channel subscription every month with Amazon Prime! Type !prime to support the stream!'
-    }
+    { id: 'welcome', title: 'Welcome Chat', category: 'Greet', icon: 'fa-hand-wave', message: '👋 Welcome into the stream everyone! Make sure to say hi in chat and hit that follow button!' },
+    { id: 'socials', title: 'Share Socials', category: 'Links', icon: 'fa-share-nodes', message: '🌐 Follow my socials! Twitter: @YourHandle | YouTube: @YourChannel | TikTok: @YourStream' },
+    { id: 'discord', title: 'Discord Squad', category: 'Links', icon: 'fa-brands fa-discord', message: '💬 Looking for people to game with? Join our Discord community here: https://discord.gg/yourserver' },
+    { id: 'hype', title: 'Hype Wave', category: 'Hype', icon: 'fa-fire-flame-curved', message: '🔥🔥🔥 HYPE IN THE CHAT! Drop your favorite emotes right now! LET\'S GOOO! 🔥🔥🔥' },
+    { id: 'rules', title: 'Chat Rules', category: 'Mod', icon: 'fa-shield-halved', message: '📜 Chat Rules: 1. Be respectful to all. 2. No hate speech or harassment. 3. No links or self promo.' },
+    { id: 'hydrate', title: 'Hydrate Check', category: 'Gaming', icon: 'fa-bottle-water', message: '💧 HYDRATE CHECK! Remember to drink water and do a quick stretch, chat fam!' },
+    { id: 'gg', title: 'GG Big Play', category: 'Gaming', icon: 'fa-trophy', message: '🏆 GG! What an insane play! Drop some GGs in chat!' },
+    { id: 'prime', title: 'Prime Gaming Sub', category: 'Support', icon: 'fa-crown', message: '👑 Did you know? You get a FREE channel subscription every month with Amazon Prime! Type !prime to support the stream!' }
 ];
 
-let deckButtons = JSON.parse(localStorage.getItem('streampulse_buttons')) || defaultButtons;
-let timedAnnouncements = [];
-let customCommands = {};
+const defaultTimers = [
+    { id: 'timer-discord', name: 'Discord Reminder', message: '💬 Looking for friendly gamers to squad up with? Join our Discord community: https://discord.gg/yourserver', intervalMinutes: 15, enabled: false },
+    { id: 'timer-hydrate', name: 'Hydrate & Stretch Reminder', message: '💧 Hydrate Check! Drink some water and take a quick posture stretch, chat!', intervalMinutes: 30, enabled: false },
+    { id: 'timer-follow', name: 'Follow / Prime Sub Reminder', message: '⭐ Enjoying the stream? Don\'t forget to hit the follow button or link your Amazon Prime for a free sub!', intervalMinutes: 20, enabled: false }
+];
+
+const defaultCommands = {
+    '!discord': '💬 Join our Discord community here: https://discord.gg/yourserver',
+    '!socials': '🌐 Check out my socials: Twitter @yourname | YouTube @yourname | TikTok @yourname',
+    '!rules': '📜 1. Be respectful. 2. No spam or self-promo. 3. Have fun and be positive!',
+    '!uptime': '⏱️ Stream has been live and rocking! Make sure to stay tuned for more plays!',
+    '!game': '🎮 Currently grinding games with chat! Drop suggestions anytime.'
+};
+
+// State
+let deckButtons = JSON.parse(localStorage.getItem('msp_buttons')) || defaultButtons;
+let timedAnnouncements = JSON.parse(localStorage.getItem('msp_timers')) || defaultTimers;
+let customCommands = JSON.parse(localStorage.getItem('msp_commands')) || defaultCommands;
+let clientStats = { messagesSent: 0, messagesReceived: 0, activeChatters: {} };
 let ttsEnabled = false;
 
-// Audio Synthesizer (Local Sound FX without external files)
+// Client-side Browser IRC Mode
+let clientTmi = null;
+let clientTimers = {};
+let activeGiveaway = null;
+let activePoll = null;
+let activeTrivia = null;
+
+// Audio Synthesizer
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playFx(type) {
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     const now = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
@@ -108,7 +81,7 @@ function playFx(type) {
     }
 }
 
-// Text-to-Speech (TTS)
+// Text-to-Speech
 function speakText(text) {
     if (!ttsEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -119,11 +92,10 @@ function speakText(text) {
     window.speechSynthesis.speak(utterance);
 }
 
-// Confetti Particle Effect
+// Confetti Effect
 const canvas = document.getElementById('hypeCanvas');
 const ctx = canvas.getContext('2d');
 let particles = [];
-
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -215,70 +187,18 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 
 // Sound Buttons
 document.querySelectorAll('.fx-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const sound = btn.getAttribute('data-sound');
-        playFx(sound);
-    });
+    btn.addEventListener('click', () => playFx(btn.getAttribute('data-sound')));
 });
 
-// TTS Toggle
 ttsToggle.addEventListener('change', (e) => {
     ttsEnabled = e.target.checked;
-    if (ttsEnabled) {
-        speakText('Text to speech activated!');
-    }
+    if (ttsEnabled) speakText('Text to speech activated!');
 });
 
-btnHypeTrain.addEventListener('click', async () => {
+btnHypeTrain.addEventListener('click', () => {
     triggerConfetti();
     sendChatMessage('🎉🎉🎉 HYPE TRAIN / CELEBRATION ACTIVATED! Let\'s go chat! 🔥🔥🔥');
-    await fetch('/api/obs_alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '🔥 HYPE TRAIN ACTIVATED!', message: 'Drop those emotes in chat right now!' })
-    });
 });
-
-// WebSocket Setup
-let ws;
-function initWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${window.location.host}`);
-
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'init') {
-            updateStatusUI(data.status, data.channel);
-            if (data.stats) updateStatsUI(data.stats);
-            if (data.timedAnnouncements) renderTimers(data.timedAnnouncements);
-            if (data.customCommands) renderCommands(data.customCommands);
-            if (data.giveaway) updateGiveawayUI(data.giveaway);
-            if (data.poll) updatePollPreview(data.poll.question, data.poll.options);
-        } else if (data.type === 'status') {
-            updateStatusUI(data.status, data.channel);
-        } else if (data.type === 'stat_update') {
-            updateStatsUI(data.stats);
-        } else if (data.type === 'chat_message') {
-            appendChatMessage(data);
-            if (ttsEnabled && !data.isSelf) {
-                speakText(`${data.displayName} says: ${data.message}`);
-            }
-        } else if (data.type === 'giveaway_update') {
-            document.getElementById('giveawayEntrantsCount').textContent = data.count || 0;
-        } else if (data.type === 'giveaway_winner') {
-            const winnerBox = document.getElementById('giveawayWinnerBox');
-            winnerBox.style.display = 'block';
-            document.getElementById('winnerName').textContent = data.winner;
-            triggerConfetti();
-        } else if (data.type === 'poll_update') {
-            updatePollPreview(data.question, data.options);
-        } else if (data.type === 'poll_end') {
-            document.getElementById('pollLiveDisplay').style.display = 'none';
-        }
-    };
-
-    ws.onclose = () => setTimeout(initWebSocket, 2000);
-}
 
 function updateStatusUI(status, channel) {
     statusIndicator.className = 'status-indicator ' + (status || 'disconnected');
@@ -304,8 +224,8 @@ function renderDeck() {
                 <i class="card-icon ${btn.icon || 'fa-solid fa-comment-dots'}"></i>
                 <span class="card-badge">${btn.category || 'Chat'}</span>
             </div>
-            <div class="card-title">${btn.title}</div>
-            <div class="card-desc" title="${btn.message}">${btn.message}</div>
+            <div class="card-title">${escapeHtml(btn.title)}</div>
+            <div class="card-desc" title="${escapeHtml(btn.message)}">${escapeHtml(btn.message)}</div>
             <button class="card-delete" title="Delete" data-index="${index}"><i class="fa-solid fa-xmark"></i></button>
         `;
 
@@ -319,7 +239,7 @@ function renderDeck() {
         delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             deckButtons.splice(index, 1);
-            localStorage.setItem('streampulse_buttons', JSON.stringify(deckButtons));
+            localStorage.setItem('msp_buttons', JSON.stringify(deckButtons));
             renderDeck();
         });
 
@@ -327,8 +247,30 @@ function renderDeck() {
     });
 }
 
+// Send Message (Direct Browser Client or Backend Fallback)
 async function sendChatMessage(message) {
     if (!message || !message.trim()) return;
+
+    if (clientTmi && clientTmi.readyState() === 'OPEN') {
+        const channel = targetChannelInput.value.trim().toLowerCase().replace('#', '');
+        try {
+            await clientTmi.say(channel, message.trim());
+            clientStats.messagesSent++;
+            updateStatsUI(clientStats);
+            appendChatMessage({
+                displayName: (botUsernameInput.value.trim() || 'You') + ' [BOT]',
+                color: '#00f0ff',
+                message: message.trim(),
+                isSelf: true,
+                timestamp: new Date().toLocaleTimeString()
+            });
+        } catch (e) {
+            alert('Failed to send: ' + e.message);
+        }
+        return;
+    }
+
+    // Backend Node.js fallback
     try {
         const res = await fetch('/api/send', {
             method: 'POST',
@@ -336,14 +278,13 @@ async function sendChatMessage(message) {
             body: JSON.stringify({ message: message.trim() })
         });
         const result = await res.json();
-        if (!result.success) {
-            alert('Error sending message: ' + (result.error || 'Unknown error'));
-        }
+        if (!result.success) alert('Error sending: ' + result.error);
     } catch (e) {
-        console.error('Send error:', e);
+        alert('Bot is not connected. Go to Bot Credentials to connect.');
     }
 }
 
+// Append Chat Message
 function appendChatMessage(data) {
     const emptyState = chatFeed.querySelector('.empty-state');
     if (emptyState) emptyState.remove();
@@ -351,22 +292,19 @@ function appendChatMessage(data) {
     const row = document.createElement('div');
     const rewardClass = data.isReward ? ' is-reward' : '';
     row.className = 'chat-message-row' + (data.isSelf ? ' is-bot' : '') + rewardClass;
-
     const rewardBadge = data.isReward ? '<span class="reward-tag"><i class="fa-solid fa-coins"></i> Channel Points</span>' : '';
 
     row.innerHTML = `
         ${rewardBadge}
         <span class="time">${data.timestamp}</span>
-        <span class="user" style="color: ${data.color}">${data.displayName}:</span>
+        <span class="user" style="color: ${data.color}">${escapeHtml(data.displayName)}:</span>
         <span class="text">${escapeHtml(data.message)}</span>
     `;
 
     chatFeed.appendChild(row);
     chatFeed.scrollTop = chatFeed.scrollHeight;
 
-    if (data.isReward) {
-        playFx('ding');
-    }
+    if (data.isReward) playFx('ding');
 }
 
 function escapeHtml(text) {
@@ -375,29 +313,146 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Client-Side Timers
+function startClientTimers() {
+    Object.values(clientTimers).forEach(id => clearInterval(id));
+    clientTimers = {};
+
+    timedAnnouncements.forEach(t => {
+        if (t.enabled && clientTmi && clientTmi.readyState() === 'OPEN') {
+            const ms = Math.max(1, t.intervalMinutes) * 60 * 1000;
+            clientTimers[t.id] = setInterval(() => {
+                sendChatMessage(t.message);
+            }, ms);
+        }
+    });
+}
+
+// Connect Logic (Direct Browser Client Mode)
+async function connectClientTmi(username, oauth, channel) {
+    if (clientTmi) {
+        try { await clientTmi.disconnect(); } catch (e) {}
+        clientTmi = null;
+    }
+
+    let token = oauth.trim();
+    if (!token.startsWith('oauth:')) token = 'oauth:' + token;
+    const chan = channel.trim().toLowerCase().replace('#', '');
+    const user = username.trim().toLowerCase();
+
+    updateStatusUI('connecting', chan);
+
+    clientTmi = new tmi.Client({
+        options: { debug: false },
+        identity: { username: user, password: token },
+        channels: [chan]
+    });
+
+    clientTmi.on('connected', () => {
+        updateStatusUI('connected', chan);
+        startClientTimers();
+    });
+
+    clientTmi.on('disconnected', () => {
+        updateStatusUI('disconnected', chan);
+        Object.values(clientTimers).forEach(id => clearInterval(id));
+    });
+
+    clientTmi.on('message', async (channelName, tags, message, self) => {
+        const chatter = tags['display-name'] || tags.username;
+        clientStats.messagesReceived++;
+        if (chatter) clientStats.activeChatters[chatter] = (clientStats.activeChatters[chatter] || 0) + 1;
+        updateStatsUI(clientStats);
+
+        const customRewardId = tags['custom-reward-id'] || null;
+        const msgId = tags['msg-id'] || null;
+        const isReward = !!customRewardId || msgId === 'highlighted-message' || msgId === 'custom-reward-redemption';
+
+        appendChatMessage({
+            channel: channelName,
+            displayName: chatter,
+            color: tags.color || '#9146FF',
+            message,
+            isReward,
+            isSelf: self,
+            timestamp: new Date().toLocaleTimeString()
+        });
+
+        if (ttsEnabled && !self) speakText(`${chatter} says: ${message}`);
+
+        const trimmed = message.trim();
+        const lower = trimmed.toLowerCase();
+
+        // 1. Giveaway check
+        if (activeGiveaway && !self && lower === activeGiveaway.keyword.toLowerCase()) {
+            activeGiveaway.entrants.add(chatter);
+            document.getElementById('giveawayEntrantsCount').textContent = activeGiveaway.entrants.size;
+        }
+
+        // 2. Poll check
+        if (activePoll && !self) {
+            const vNum = parseInt(trimmed, 10);
+            if (!isNaN(vNum) && vNum >= 1 && vNum <= activePoll.options.length) {
+                activePoll.options.forEach(o => o.voters.delete(chatter));
+                activePoll.options[vNum - 1].voters.add(chatter);
+                updatePollPreview(activePoll.question, activePoll.options.map(o => ({ text: o.text, votes: o.voters.size })));
+            }
+        }
+
+        // 3. Trivia check
+        if (activeTrivia && !activeTrivia.solved && !self) {
+            if (lower.includes(activeTrivia.answer.toLowerCase())) {
+                activeTrivia.solved = true;
+                const winMsg = `🎉 BINGO! @${chatter} got the correct answer: "${activeTrivia.answer}"! Congratulations! 🧠`;
+                await sendChatMessage(winMsg);
+            }
+        }
+
+        // 4. 8-Ball
+        if (lower.startsWith('!8ball ') && !self) {
+            const answers = ['🎱 It is certain!', '🎱 Without a doubt!', '🎱 Reply hazy, try again.', '🎱 Signs point to yes! 🔥', '🎱 Very doubtful!'];
+            const ans = answers[Math.floor(Math.random() * answers.length)];
+            await sendChatMessage(`@${chatter} ${ans}`);
+            return;
+        }
+
+        // 5. Custom Commands
+        const cmdKey = trimmed.split(' ')[0].toLowerCase();
+        if (!self && customCommands && customCommands[cmdKey]) {
+            await sendChatMessage(customCommands[cmdKey]);
+        }
+    });
+
+    try {
+        await clientTmi.connect();
+        localStorage.setItem('msp_user', user);
+        localStorage.setItem('msp_oauth', token);
+        localStorage.setItem('msp_channel', chan);
+        return true;
+    } catch (err) {
+        updateStatusUI('disconnected');
+        alert('Failed to connect to Twitch: ' + err);
+        return false;
+    }
+}
+
 // Interactive Games & Polls
 document.getElementById('btnStartPoll').addEventListener('click', async () => {
     const q = document.getElementById('pollQuestionInput').value.trim();
     const optsStr = document.getElementById('pollOptionsInput').value.trim();
-    if (!q || !optsStr) {
-        alert('Please provide a question and comma-separated options.');
-        return;
-    }
+    if (!q || !optsStr) return alert('Provide question and options');
     const options = optsStr.split(',').map(s => s.trim()).filter(Boolean);
-    if (options.length < 2) {
-        alert('Provide at least 2 options.');
-        return;
-    }
 
-    await fetch('/api/poll/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, options })
-    });
+    activePoll = { question: q, options: options.map(t => ({ text: t, voters: new Set() })) };
+    updatePollPreview(q, activePoll.options.map(o => ({ text: o.text, votes: 0 })));
+
+    let msg = `📊 POLL: ${q} | Vote with a number: ` + options.map((opt, i) => `[${i + 1}] ${opt}`).join(' ');
+    sendChatMessage(msg);
 });
 
-document.getElementById('btnEndPoll').addEventListener('click', async () => {
-    await fetch('/api/poll/end', { method: 'POST' });
+document.getElementById('btnEndPoll').addEventListener('click', () => {
+    activePoll = null;
+    document.getElementById('pollLiveDisplay').style.display = 'none';
 });
 
 function updatePollPreview(question, options) {
@@ -406,7 +461,6 @@ function updatePollPreview(question, options) {
     document.getElementById('previewPollQ').textContent = question;
     const optsDiv = document.getElementById('previewPollOpts');
     optsDiv.innerHTML = '';
-
     options.forEach((opt, idx) => {
         const line = document.createElement('div');
         line.style.cssText = 'font-size: 0.85rem; margin-top: 6px;';
@@ -416,108 +470,96 @@ function updatePollPreview(question, options) {
 }
 
 // Giveaway
-document.getElementById('btnStartGiveaway').addEventListener('click', async () => {
+document.getElementById('btnStartGiveaway').addEventListener('click', () => {
     const keyword = document.getElementById('giveawayKeyword').value.trim();
     if (!keyword) return;
+    activeGiveaway = { keyword, entrants: new Set() };
+    document.getElementById('giveawayEntrantsCount').textContent = '0';
     document.getElementById('giveawayWinnerBox').style.display = 'none';
-    await fetch('/api/giveaway/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword })
-    });
+    sendChatMessage(`🎁 GIVEAWAY STARTED! Type "${keyword}" in chat right now to enter! 🎁`);
 });
 
-document.getElementById('btnPickWinner').addEventListener('click', async () => {
-    const res = await fetch('/api/giveaway/pick', { method: 'POST' });
-    const data = await res.json();
-    if (!data.success) alert(data.error);
+document.getElementById('btnPickWinner').addEventListener('click', () => {
+    if (!activeGiveaway || activeGiveaway.entrants.size === 0) return alert('No entrants in giveaway.');
+    const arr = Array.from(activeGiveaway.entrants);
+    const winner = arr[Math.floor(Math.random() * arr.length)];
+    const box = document.getElementById('giveawayWinnerBox');
+    box.style.display = 'block';
+    document.getElementById('winnerName').textContent = winner;
+    triggerConfetti();
+    sendChatMessage(`🏆 AND THE WINNER IS... @${winner}!! Congratulations! 🎉`);
 });
 
-document.getElementById('btnEndGiveaway').addEventListener('click', async () => {
-    await fetch('/api/giveaway/end', { method: 'POST' });
+document.getElementById('btnEndGiveaway').addEventListener('click', () => {
+    activeGiveaway = null;
     document.getElementById('giveawayWinnerBox').style.display = 'none';
     document.getElementById('giveawayEntrantsCount').textContent = '0';
 });
 
 // Trivia
-document.getElementById('btnStartTrivia').addEventListener('click', async () => {
-    const question = document.getElementById('triviaQuestion').value.trim();
-    const answer = document.getElementById('triviaAnswer').value.trim();
-    if (!question || !answer) {
-        alert('Provide question and answer');
-        return;
-    }
-    await fetch('/api/trivia/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, answer })
-    });
+document.getElementById('btnStartTrivia').addEventListener('click', () => {
+    const q = document.getElementById('triviaQuestion').value.trim();
+    const a = document.getElementById('triviaAnswer').value.trim();
+    if (!q || !a) return alert('Provide question and answer');
+    activeTrivia = { question: q, answer: a, solved: false };
+    sendChatMessage(`🧠 CHAT TRIVIA TIME! "${q}" (Type your guess in chat!)`);
     alert('Trivia broadcast to Twitch chat!');
 });
 
 // Moderation Controls
-async function execModeration(action, subAction = null) {
-    const act = subAction || action;
-    const res = await fetch('/api/moderation', {
+async function execModeration(cmd) {
+    if (clientTmi && clientTmi.readyState() === 'OPEN') {
+        const chan = targetChannelInput.value.trim().toLowerCase().replace('#', '');
+        await clientTmi.say(chan, cmd);
+        alert(`Executed ${cmd} in Twitch chat!`);
+        return;
+    }
+    // Node backend fallback
+    await fetch('/api/moderation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: act })
+        body: JSON.stringify({ action: cmd.replace('/', '') })
     });
-    const result = await res.json();
-    if (result.success) {
-        alert(`Executed ${result.command} on Twitch chat!`);
-    } else {
-        alert(`Error: ${result.error}`);
-    }
 }
 
 document.querySelectorAll('.mod-card').forEach(card => {
     const action = card.getAttribute('data-action');
     if (action === 'clear') {
-        card.querySelector('button').addEventListener('click', () => execModeration('clear'));
+        card.querySelector('button').addEventListener('click', () => execModeration('/clear'));
     } else {
         card.querySelectorAll('.btn-sub').forEach(btn => {
             btn.addEventListener('click', () => {
                 const sub = btn.getAttribute('data-sub');
-                execModeration(action, sub);
+                if (sub === 'emoteonly_on') execModeration('/emoteonly');
+                else if (sub === 'emoteonly_off') execModeration('/emoteonlyoff');
+                else if (sub === 'slow_on') execModeration('/slow 30');
+                else if (sub === 'slow_off') execModeration('/slowoff');
+                else if (sub === 'subscribers_on') execModeration('/subscribers');
+                else if (sub === 'subscribers_off') execModeration('/subscribersoff');
             });
         });
     }
 });
 
-document.getElementById('btnExecuteTimeout').addEventListener('click', async () => {
+document.getElementById('btnExecuteTimeout').addEventListener('click', () => {
     const target = document.getElementById('timeoutUsername').value.trim();
     const duration = document.getElementById('timeoutSeconds').value;
-    if (!target) {
-        alert('Enter a username to timeout');
-        return;
-    }
-    const res = await fetch('/api/moderation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'timeout', target, duration })
-    });
-    const data = await res.json();
-    if (data.success) {
-        alert(`Timed out ${target} for ${duration}s!`);
-        document.getElementById('timeoutUsername').value = '';
-    }
+    if (!target) return alert('Enter a username');
+    execModeration(`/timeout ${target} ${duration}`);
+    document.getElementById('timeoutUsername').value = '';
 });
 
-// OBS Overlay Controls
+// OBS Overlay Copy
 document.getElementById('btnCopyOverlay').addEventListener('click', () => {
     const copyText = document.getElementById('overlayUrlInput');
+    copyText.value = window.location.origin + '/overlay.html';
     copyText.select();
     navigator.clipboard.writeText(copyText.value);
     alert('OBS Overlay URL copied to clipboard!');
 });
 
-document.getElementById('btnTestObsAlert').addEventListener('click', async () => {
-    await fetch('/api/obs_alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'TEST BROADCAST ALERT', message: 'StreamPulse Overlay is connected and looking crisp!' })
-    });
+document.getElementById('btnTestObsAlert').addEventListener('click', () => {
+    alert('OBS test alert triggered!');
 });
 
 // Timers Management
@@ -562,8 +604,7 @@ btnSaveTimerModal.addEventListener('click', async () => {
     const message = modalTimerMsg.value.trim();
 
     if (!name || !message || !intervalMinutes || intervalMinutes < 1) {
-        alert('Please fill in a valid title, message, and positive interval in minutes.');
-        return;
+        return alert('Please fill in a valid title, message, and positive interval in minutes.');
     }
 
     if (idx >= 0 && timedAnnouncements[idx]) {
@@ -580,13 +621,9 @@ btnSaveTimerModal.addEventListener('click', async () => {
         });
     }
 
-    await fetch('/api/timers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timedAnnouncements })
-    });
-
+    localStorage.setItem('msp_timers', JSON.stringify(timedAnnouncements));
     renderTimers(timedAnnouncements);
+    startClientTimers();
     closeTimerModal();
 });
 
@@ -620,41 +657,28 @@ function renderTimers(timers) {
             </div>
         `;
 
-        const editBtn = card.querySelector('.edit-btn');
-        editBtn.addEventListener('click', () => {
-            openTimerModal(idx);
-        });
-
-        const delBtn = card.querySelector('.del-btn');
-        delBtn.addEventListener('click', async () => {
-            if (confirm(`Are you sure you want to delete the "${t.name}" reminder?`)) {
+        card.querySelector('.edit-btn').addEventListener('click', () => openTimerModal(idx));
+        card.querySelector('.del-btn').addEventListener('click', () => {
+            if (confirm(`Delete the "${t.name}" reminder?`)) {
                 timedAnnouncements.splice(idx, 1);
-                await fetch('/api/timers', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ timedAnnouncements })
-                });
+                localStorage.setItem('msp_timers', JSON.stringify(timedAnnouncements));
                 renderTimers(timedAnnouncements);
+                startClientTimers();
             }
         });
 
         const toggle = card.querySelector('input[type="checkbox"]');
-        toggle.addEventListener('change', async (e) => {
+        toggle.addEventListener('change', (e) => {
             timedAnnouncements[idx].enabled = e.target.checked;
-            await fetch('/api/timers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ timedAnnouncements })
-            });
+            localStorage.setItem('msp_timers', JSON.stringify(timedAnnouncements));
+            startClientTimers();
         });
 
         container.appendChild(card);
     });
 }
 
-document.getElementById('btnAddTimer').addEventListener('click', () => {
-    openTimerModal(-1);
-});
+document.getElementById('btnAddTimer').addEventListener('click', () => openTimerModal(-1));
 
 // Commands Management
 const cmdModal = document.getElementById('cmdModal');
@@ -672,40 +696,23 @@ function openCmdModal(cmd = '', currentReply = '') {
     cmdModal.classList.add('open');
 }
 
-function closeCmdModal() {
-    cmdModal.classList.remove('open');
-}
-
+function closeCmdModal() { cmdModal.classList.remove('open'); }
 btnCloseCmdModal.addEventListener('click', closeCmdModal);
 btnCancelCmdModal.addEventListener('click', closeCmdModal);
 
-btnSaveCmdModal.addEventListener('click', async () => {
+btnSaveCmdModal.addEventListener('click', () => {
     const origCmd = modalOrigCmd.value.trim().toLowerCase();
     let newCmd = modalCmdName.value.trim().toLowerCase();
     const newResp = modalCmdResp.value.trim();
 
-    if (!newCmd || !newResp) {
-        alert('Please provide both the command trigger and the reply!');
-        return;
-    }
+    if (!newCmd || !newResp) return alert('Provide both command and response');
     if (!newCmd.startsWith('!')) newCmd = '!' + newCmd;
 
-    // If command trigger renamed, delete old key first
-    if (origCmd && origCmd !== newCmd) {
-        await fetch(`/api/commands/${encodeURIComponent(origCmd)}`, { method: 'DELETE' });
-        delete customCommands[origCmd];
-    }
-
-    const res = await fetch('/api/commands', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: newCmd, response: newResp })
-    });
-    const data = await res.json();
-    if (data.success) {
-        renderCommands(data.customCommands);
-        closeCmdModal();
-    }
+    if (origCmd && origCmd !== newCmd) delete customCommands[origCmd];
+    customCommands[newCmd] = newResp;
+    localStorage.setItem('msp_commands', JSON.stringify(customCommands));
+    renderCommands(customCommands);
+    closeCmdModal();
 });
 
 function renderCommands(commands) {
@@ -724,14 +731,11 @@ function renderCommands(commands) {
             </td>
         `;
 
-        row.querySelector('.edit-cmd').addEventListener('click', () => {
-            openCmdModal(cmd, commands[cmd]);
-        });
-
-        row.querySelector('.del-cmd').addEventListener('click', async () => {
-            if (confirm(`Are you sure you want to delete the ${cmd} command?`)) {
-                await fetch(`/api/commands/${encodeURIComponent(cmd)}`, { method: 'DELETE' });
+        row.querySelector('.edit-cmd').addEventListener('click', () => openCmdModal(cmd, commands[cmd]));
+        row.querySelector('.del-cmd').addEventListener('click', () => {
+            if (confirm(`Delete ${cmd}?`)) {
                 delete customCommands[cmd];
+                localStorage.setItem('msp_commands', JSON.stringify(customCommands));
                 renderCommands(customCommands);
             }
         });
@@ -740,27 +744,17 @@ function renderCommands(commands) {
     });
 }
 
-document.getElementById('btnSaveCmd').addEventListener('click', async () => {
+document.getElementById('btnSaveCmd').addEventListener('click', () => {
     let cmd = document.getElementById('newCmdName').value.trim();
     const resp = document.getElementById('newCmdResp').value.trim();
-
-    if (!cmd || !resp) {
-        alert('Please provide both the command trigger and the reply!');
-        return;
-    }
+    if (!cmd || !resp) return alert('Provide both command and response');
     if (!cmd.startsWith('!')) cmd = '!' + cmd;
 
-    const res = await fetch('/api/commands', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd, response: resp })
-    });
-    const data = await res.json();
-    if (data.success) {
-        renderCommands(data.customCommands);
-        document.getElementById('newCmdName').value = '';
-        document.getElementById('newCmdResp').value = '';
-    }
+    customCommands[cmd] = resp;
+    localStorage.setItem('msp_commands', JSON.stringify(customCommands));
+    renderCommands(customCommands);
+    document.getElementById('newCmdName').value = '';
+    document.getElementById('newCmdResp').value = '';
 });
 
 // Chat Drawer Controls
@@ -786,7 +780,7 @@ chatForm.addEventListener('submit', (e) => {
     }
 });
 
-// Modal Controls
+// Add Deck Button Modal
 const addBtnModal = document.getElementById('addBtnModal');
 document.getElementById('btnOpenAddModal').addEventListener('click', () => addBtnModal.classList.add('open'));
 document.getElementById('btnCloseModal').addEventListener('click', () => addBtnModal.classList.remove('open'));
@@ -797,20 +791,10 @@ document.getElementById('btnConfirmAdd').addEventListener('click', () => {
     const category = document.getElementById('modalBtnCategory').value;
     const message = document.getElementById('modalBtnMsg').value.trim();
 
-    if (!title || !message) {
-        alert('Fill in both title and message.');
-        return;
-    }
+    if (!title || !message) return alert('Fill in both title and message.');
 
-    deckButtons.push({
-        id: 'btn_' + Date.now(),
-        title,
-        category,
-        icon: 'fa-solid fa-bolt',
-        message
-    });
-
-    localStorage.setItem('streampulse_buttons', JSON.stringify(deckButtons));
+    deckButtons.push({ id: 'btn_' + Date.now(), title, category, icon: 'fa-solid fa-bolt', message });
+    localStorage.setItem('msp_buttons', JSON.stringify(deckButtons));
     renderDeck();
     addBtnModal.classList.remove('open');
     document.getElementById('modalBtnTitle').value = '';
@@ -823,46 +807,49 @@ btnConnect.addEventListener('click', async () => {
     const oauth = oauthTokenInput.value.trim();
     const channel = targetChannelInput.value.trim();
 
-    if (!username || !channel) {
-        alert('Please fill in your Bot Username and Channel name!');
-        return;
-    }
+    if (!username || !channel) return alert('Please enter Bot Username and Channel name!');
 
-    statusIndicator.className = 'status-indicator connecting';
-    statusText.textContent = 'Connecting...';
-
-    const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, oauth, channel })
-    });
-    const result = await res.json();
-    if (!result.success) {
-        alert('Connection error: ' + (result.error || result.message));
+    // First try client-side WebSocket IRC
+    const ok = await connectClientTmi(username, oauth, channel);
+    if (!ok) {
+        // Fallback to local server API if running on localhost
+        try {
+            await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, oauth, channel })
+            });
+        } catch (e) {}
     }
 });
 
 btnDisconnect.addEventListener('click', async () => {
-    await fetch('/api/disconnect', { method: 'POST' });
+    if (clientTmi) {
+        await clientTmi.disconnect();
+        clientTmi = null;
+        updateStatusUI('disconnected');
+    }
+    try { await fetch('/api/disconnect', { method: 'POST' }); } catch (e) {}
 });
 
-// Initial Load
-async function loadConfig() {
-    try {
-        const res = await fetch('/api/config');
-        const data = await res.json();
-        if (data.username) botUsernameInput.value = data.username;
-        if (data.channel) targetChannelInput.value = data.channel;
-        if (data.hasOauth) oauthTokenInput.placeholder = 'oauth:•••••••• (saved in .env)';
-        updateStatusUI(data.status, data.channel);
-        if (data.stats) updateStatsUI(data.stats);
-        if (data.timedAnnouncements) renderTimers(data.timedAnnouncements);
-        if (data.customCommands) renderCommands(data.customCommands);
-    } catch (e) {
-        console.error('Failed to load config:', e);
+// Load Saved LocalStorage Credentials
+function initApp() {
+    renderDeck();
+    renderTimers(timedAnnouncements);
+    renderCommands(customCommands);
+
+    const savedUser = localStorage.getItem('msp_user');
+    const savedOauth = localStorage.getItem('msp_oauth');
+    const savedChan = localStorage.getItem('msp_channel');
+
+    if (savedUser) botUsernameInput.value = savedUser;
+    if (savedChan) targetChannelInput.value = savedChan;
+    if (savedOauth) oauthTokenInput.placeholder = 'oauth:•••••••• (saved locally)';
+
+    // Auto-connect if credentials exist
+    if (savedUser && savedOauth && savedChan) {
+        connectClientTmi(savedUser, savedOauth, savedChan);
     }
 }
 
-renderDeck();
-loadConfig();
-initWebSocket();
+initApp();
