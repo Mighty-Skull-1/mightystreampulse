@@ -1,6 +1,7 @@
 node_modules/
 .env
 dashboard_data.json
+*.exe
 .DS_Store
 *.log
 npm-debug.log*
