@@ -281,7 +281,7 @@ async function sendChatMessage(message) {
             clientStats.messagesSent++;
             updateStatsUI(clientStats);
             appendChatMessage({
-                displayName: (botUsernameInput.value.trim() || 'You') + ' [BOT]',
+                displayName: 'MightyStreamPulse Bot',
                 color: '#00f0ff',
                 message: message.trim(),
                 isSelf: true,
@@ -460,6 +460,9 @@ async function connectClientTmi(username, oauth, channel) {
     });
 
     clientTmi.on('message', async (channelName, tags, message, self) => {
+        // Skip echo if sent by our own bot/dashboard (already added once as MightyStreamPulse Bot)
+        if (self) return;
+
         const chatter = tags['display-name'] || tags.username;
         clientStats.messagesReceived++;
         if (chatter) clientStats.activeChatters[chatter] = (clientStats.activeChatters[chatter] || 0) + 1;
