@@ -380,30 +380,114 @@ app.post('/api/send', async (req, res) => {
     }
 });
 
-// Twitch Moderation API (Say /clear, /slow, /emoteonly, /timeout)
+// Helper for Helix moderation API in server.js
+async function executeHelixModeration(action, target, duration) {
+    try {
+        const token = (currentConfig.oauth || '').replace(/^oauth:/i, '').trim();
+        if (!token) return false;
+
+        const valRes = await fetch('https://id.twitch.tv/oauth2/validate', {
+            headers: { 'Authorization': 'OAuth ' + token }
+        });
+        if (!valRes.ok) return false;
+        const valData = await valRes.json();
+        const userId = valData.user_id;
+        const clientId = valData.client_id;
+
+        let broadcasterId = userId;
+        const chan = (currentConfig.channel || '').toLowerCase().replace('#', '');
+        if (chan && chan !== valData.login) {
+            const uRes = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(chan)}`, {
+                headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token }
+            });
+            if (uRes.ok) {
+                const uData = await uRes.json();
+                if (uData.data && uData.data[0]) broadcasterId = uData.data[0].id;
+            }
+        }
+
+        if (action === 'clear') {
+            const r = await fetch(`https://api.twitch.tv/helix/moderation/chat?broadcaster_id=${broadcasterId}&moderator_id=${userId}`, {
+                method: 'DELETE',
+                headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token }
+            });
+            return r.status === 204 || r.ok;
+        }
+        if (action === 'emoteonly_on' || action === 'emoteonly_off') {
+            const r = await fetch(`https://api.twitch.tv/helix/chat/settings?broadcaster_id=${broadcasterId}&moderator_id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emote_mode: action === 'emoteonly_on' })
+            });
+            return r.ok;
+        }
+        if (action === 'slow_on' || action === 'slow_off') {
+            const r = await fetch(`https://api.twitch.tv/helix/chat/settings?broadcaster_id=${broadcasterId}&moderator_id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify(action === 'slow_on' ? { slow_mode: true, slow_mode_wait_time: parseInt(duration || 30, 10) } : { slow_mode: false })
+            });
+            return r.ok;
+        }
+        if (action === 'subscribers_on' || action === 'subscribers_off') {
+            const r = await fetch(`https://api.twitch.tv/helix/chat/settings?broadcaster_id=${broadcasterId}&moderator_id=${userId}`, {
+                method: 'PATCH',
+                headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscriber_mode: action === 'subscribers_on' })
+            });
+            return r.ok;
+        }
+        if (action === 'timeout' && target) {
+            const cleanTarget = target.toLowerCase().replace('@', '');
+            const targetRes = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(cleanTarget)}`, {
+                headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token }
+            });
+            if (targetRes.ok) {
+                const tData = await targetRes.json();
+                if (tData.data && tData.data[0]) {
+                    const targetId = tData.data[0].id;
+                    const r = await fetch(`https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${broadcasterId}&moderator_id=${userId}`, {
+                        method: 'POST',
+                        headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: { user_id: targetId, duration: parseInt(duration || 600, 10), reason: 'Timed out via MightyStreamPulse' } })
+                    });
+                    return r.ok;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('executeHelixModeration error:', e);
+    }
+    return false;
+}
+
+// Twitch Moderation API (Helix & IRC fallback)
 app.post('/api/moderation', async (req, res) => {
     const { action, target, duration } = req.body;
-    if (!twitchClient || botStatus !== 'connected') {
-        return res.status(400).json({ success: false, error: 'Bot is not connected.' });
-    }
-
     try {
-        let cmd = '';
-        if (action === 'clear') cmd = '/clear';
-        else if (action === 'emoteonly_on') cmd = '/emoteonly';
-        else if (action === 'emoteonly_off') cmd = '/emoteonlyoff';
-        else if (action === 'slow_on') cmd = `/slow ${duration || 30}`;
-        else if (action === 'slow_off') cmd = '/slowoff';
-        else if (action === 'subscribers_on') cmd = '/subscribers';
-        else if (action === 'subscribers_off') cmd = '/subscribersoff';
-        else if (action === 'timeout' && target) cmd = `/timeout ${target} ${duration || 600}`;
-
-        if (cmd) {
-            await twitchClient.say(currentConfig.channel, cmd);
-            res.json({ success: true, command: cmd });
-        } else {
-            res.status(400).json({ success: false, error: 'Unknown moderation action' });
+        const helixOk = await executeHelixModeration(action, target, duration);
+        if (helixOk) {
+            return res.json({ success: true, method: 'helix' });
         }
+
+        // Fallback to IRC say
+        if (twitchClient && botStatus === 'connected') {
+            let cmd = '';
+            if (action === 'clear') cmd = '/clear';
+            else if (action === 'emoteonly_on') cmd = '/emoteonly';
+            else if (action === 'emoteonly_off') cmd = '/emoteonlyoff';
+            else if (action === 'slow_on') cmd = `/slow ${duration || 30}`;
+            else if (action === 'slow_off') cmd = '/slowoff';
+            else if (action === 'subscribers_on') cmd = '/subscribers';
+            else if (action === 'subscribers_off') cmd = '/subscribersoff';
+            else if (action === 'timeout' && target) cmd = `/timeout ${target} ${duration || 600}`;
+
+            if (cmd) {
+                await twitchClient.say(currentConfig.channel, cmd);
+                return res.json({ success: true, command: cmd, method: 'irc' });
+            }
+        }
+        res.status(400).json({ success: false, error: 'Could not execute moderation action' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.toString() });
     }

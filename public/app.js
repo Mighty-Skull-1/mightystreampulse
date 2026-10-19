@@ -1167,25 +1167,365 @@ document.getElementById('btnStartTrivia').addEventListener('click', () => {
 });
 
 // Moderation Controls
-async function execModeration(cmd) {
-    if (clientTmi && clientTmi.readyState() === 'OPEN') {
-        const chan = targetChannelInput.value.trim().toLowerCase().replace('#', '');
-        await clientTmi.say(chan, cmd);
-        alert(`Executed ${cmd} in Twitch chat!`);
-        return;
+// Moderation Controls (Official Twitch Helix API Engine)
+async function getHelixAuthContext() {
+    let token = (localStorage.getItem(getProfileKey('oauth')) || '').replace(/^oauth:/i, '').trim();
+    let clientId = localStorage.getItem('msp_twitch_client_id') || '0r9wta4lw0nu45hd8avh0tba5adf3z';
+    let userId = localStorage.getItem(getProfileKey('user_id')) || '';
+    let channel = (localStorage.getItem(getProfileKey('channel')) || targetChannelInput.value || '').trim().toLowerCase().replace('#', '');
+
+    if (!token) {
+        throw new Error('Not connected to Twitch. Please log in with your Twitch account first.');
     }
-    // Node backend fallback
-    await fetch('/api/moderation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: cmd.replace('/', '') })
-    });
+
+    // If userId or clientId missing, validate with Twitch
+    if (!userId || !clientId || clientId === '8j6lbezh9dakukfeln6kgehqphfchw') {
+        try {
+            const valRes = await fetch('https://id.twitch.tv/oauth2/validate', {
+                headers: { 'Authorization': 'OAuth ' + token }
+            });
+            if (valRes.ok) {
+                const valData = await valRes.json();
+                userId = valData.user_id;
+                clientId = valData.client_id || clientId;
+                localStorage.setItem(getProfileKey('user_id'), userId);
+                localStorage.setItem('msp_twitch_client_id', clientId);
+            }
+        } catch (e) {
+            console.warn('Validate error:', e);
+        }
+    }
+
+    // Now get the broadcaster ID for the target channel if different from logged-in user
+    let broadcasterId = userId;
+    const currentUsername = (localStorage.getItem(getProfileKey('user')) || '').toLowerCase();
+    if (channel && channel !== currentUsername) {
+        try {
+            const uRes = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(channel)}`, {
+                headers: {
+                    'Client-ID': clientId,
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+            if (uRes.ok) {
+                const uData = await uRes.json();
+                if (uData.data && uData.data[0]) {
+                    broadcasterId = uData.data[0].id;
+                }
+            }
+        } catch (e) {}
+    }
+
+    return { token, clientId, userId, broadcasterId, channel };
+}
+
+async function fetchTwitchUserId(username, clientId, token) {
+    try {
+        const cleanUser = (username || '').trim().toLowerCase().replace('@', '');
+        const res = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(cleanUser)}`, {
+            headers: {
+                'Client-ID': clientId,
+                'Authorization': 'Bearer ' + token
+            }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.data && data.data[0]) {
+                return data.data[0].id;
+            }
+        }
+    } catch (e) {
+        console.error('fetchTwitchUserId error:', e);
+    }
+    return null;
+}
+
+function handleHelixModError(status, errData, actionName) {
+    console.error('Helix moderation error:', status, errData);
+    let msg = (errData && (errData.message || errData.error)) || 'Unknown Twitch API error';
+
+    if (status === 403 || status === 401 || (msg && msg.toLowerCase().includes('scope'))) {
+        alert(`🔒 Twitch Permission Required for ${actionName}:\n\nYour login does not have moderator permissions granted.\n\nTo fix:\n1. Click "Switch / Exit" in the top-right corner.\n2. Reconnect with Twitch to grant the updated moderation permissions.`);
+    } else {
+        alert(`Twitch Moderation Notice (${actionName}):\n${msg}`);
+    }
+}
+
+async function execModeration(cmd, extraParams = {}) {
+    try {
+        const auth = await getHelixAuthContext();
+        const cleanCmd = (cmd || '').trim().toLowerCase();
+
+        // 1. Clear Chat (/clear)
+        if (cleanCmd === '/clear') {
+            const url = `https://api.twitch.tv/helix/moderation/chat?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token
+                }
+            });
+
+            if (res.status === 204 || res.ok) {
+                chatFeed.innerHTML = '<div class="empty-state"><i class="fa-solid fa-broom"></i><p>Chat was cleared by moderator.</p></div>';
+                alert('🧹 Chat was cleared successfully on Twitch!');
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, 'Clear Chat');
+                return false;
+            }
+        }
+
+        // 2. Emote-Only Mode (/emoteonly and /emoteonlyoff)
+        if (cleanCmd === '/emoteonly' || cleanCmd === '/emoteonlyoff') {
+            const enabled = cleanCmd === '/emoteonly';
+            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
+            const res = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ emote_mode: enabled })
+            });
+
+            if (res.ok) {
+                alert(enabled ? '😊 Emote-Only chat enabled on Twitch!' : '💬 Emote-Only chat disabled on Twitch!');
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, 'Emote-Only Mode');
+                return false;
+            }
+        }
+
+        // 3. Slow Mode (/slow <seconds> and /slowoff)
+        if (cleanCmd.startsWith('/slow') || cleanCmd === '/slowoff') {
+            const enabled = cleanCmd !== '/slowoff';
+            let seconds = 30;
+            if (enabled) {
+                const parts = cleanCmd.split(' ');
+                if (parts.length > 1 && !isNaN(parseInt(parts[1], 10))) {
+                    seconds = parseInt(parts[1], 10);
+                } else if (extraParams.seconds) {
+                    seconds = parseInt(extraParams.seconds, 10);
+                }
+            }
+            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
+            const res = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(enabled ? { slow_mode: true, slow_mode_wait_time: seconds } : { slow_mode: false })
+            });
+
+            if (res.ok) {
+                alert(enabled ? `⏱️ Slow mode enabled (${seconds}s) on Twitch!` : '⚡ Slow mode disabled on Twitch!');
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, 'Slow Mode');
+                return false;
+            }
+        }
+
+        // 4. Sub-Only Chat (/subscribers and /subscribersoff)
+        if (cleanCmd === '/subscribers' || cleanCmd === '/subscribersoff' || cleanCmd === '/subonly' || cleanCmd === '/subonlyoff') {
+            const enabled = cleanCmd === '/subscribers' || cleanCmd === '/subonly';
+            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
+            const res = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ subscriber_mode: enabled })
+            });
+
+            if (res.ok) {
+                alert(enabled ? '⭐ Sub-Only chat enabled on Twitch!' : '⭐ Sub-Only chat disabled on Twitch!');
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, 'Sub-Only Chat');
+                return false;
+            }
+        }
+
+        // 5. Follower-Only Chat (/followers <duration> and /followersoff)
+        if (cleanCmd.startsWith('/followers') || cleanCmd === '/followersoff') {
+            const enabled = cleanCmd !== '/followersoff';
+            let durationMin = 0;
+            if (enabled) {
+                const match = cleanCmd.match(/\/followers\s+(\d+)/);
+                if (match) durationMin = parseInt(match[1], 10);
+            }
+            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
+            const res = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(enabled ? { follower_mode: true, follower_mode_duration: durationMin } : { follower_mode: false })
+            });
+
+            if (res.ok) {
+                alert(enabled ? `Follower-Only mode enabled (${durationMin}m) on Twitch!` : 'Follower-Only mode disabled on Twitch!');
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, 'Follower-Only Mode');
+                return false;
+            }
+        }
+
+        // 6. User Timeout (/timeout <user> [duration] [reason])
+        if (cleanCmd.startsWith('/timeout ') || extraParams.action === 'timeout') {
+            let targetUser = extraParams.target || '';
+            let durationSec = extraParams.duration ? parseInt(extraParams.duration, 10) : 600;
+            let reason = extraParams.reason || 'Timed out via MightyStreamPulse';
+
+            if (!targetUser && cleanCmd.startsWith('/timeout ')) {
+                const parts = cmd.trim().split(/\s+/);
+                targetUser = parts[1] ? parts[1].replace('@', '') : '';
+                if (parts[2] && !isNaN(parseInt(parts[2], 10))) {
+                    durationSec = parseInt(parts[2], 10);
+                }
+                if (parts.length > 3) {
+                    reason = parts.slice(3).join(' ');
+                }
+            }
+
+            if (!targetUser) {
+                alert('Please provide a username to timeout.');
+                return false;
+            }
+
+            const targetId = await fetchTwitchUserId(targetUser, auth.clientId, auth.token);
+            if (!targetId) {
+                alert(`Could not find Twitch user "${targetUser}". Check username spelling.`);
+                return false;
+            }
+
+            const url = `https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    data: {
+                        user_id: targetId,
+                        duration: durationSec,
+                        reason: reason
+                    }
+                })
+            });
+
+            if (res.ok) {
+                alert(`🚫 Timed out @${targetUser} for ${durationSec}s!`);
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, `Timeout @${targetUser}`);
+                return false;
+            }
+        }
+
+        // 7. Ban User (/ban <user> [reason])
+        if (cleanCmd.startsWith('/ban ')) {
+            const parts = cmd.trim().split(/\s+/);
+            const targetUser = parts[1] ? parts[1].replace('@', '') : '';
+            const reason = parts.length > 2 ? parts.slice(2).join(' ') : 'Banned via MightyStreamPulse';
+            if (!targetUser) return alert('Provide username to ban');
+
+            const targetId = await fetchTwitchUserId(targetUser, auth.clientId, auth.token);
+            if (!targetId) return alert(`User "${targetUser}" not found.`);
+
+            const url = `https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    data: {
+                        user_id: targetId,
+                        reason: reason
+                    }
+                })
+            });
+
+            if (res.ok) {
+                alert(`🔨 Permanently banned @${targetUser} from channel!`);
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, `Ban @${targetUser}`);
+                return false;
+            }
+        }
+
+        // 8. Unban User (/unban <user>)
+        if (cleanCmd.startsWith('/unban ')) {
+            const parts = cmd.trim().split(/\s+/);
+            const targetUser = parts[1] ? parts[1].replace('@', '') : '';
+            if (!targetUser) return alert('Provide username to unban');
+
+            const targetId = await fetchTwitchUserId(targetUser, auth.clientId, auth.token);
+            if (!targetId) return alert(`User "${targetUser}" not found.`);
+
+            const url = `https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}&user_id=${targetId}`;
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'Client-ID': auth.clientId,
+                    'Authorization': 'Bearer ' + auth.token
+                }
+            });
+
+            if (res.status === 204 || res.ok) {
+                alert(`Unbanned @${targetUser}!`);
+                return true;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                handleHelixModError(res.status, errData, `Unban @${targetUser}`);
+                return false;
+            }
+        }
+
+        // Fallback: send as chat message if unrecognized slash command
+        if (clientTmi && clientTmi.readyState() === 'OPEN') {
+            await clientTmi.say(auth.channel, cmd);
+            alert(`Sent command: ${cmd}`);
+            return true;
+        }
+
+    } catch (e) {
+        console.error('execModeration error:', e);
+        alert('Moderation Error: ' + e.message);
+        return false;
+    }
 }
 
 document.querySelectorAll('.mod-card').forEach(card => {
     const action = card.getAttribute('data-action');
     if (action === 'clear') {
-        card.querySelector('button').addEventListener('click', () => execModeration('/clear'));
+        const btn = card.querySelector('button');
+        if (btn) btn.addEventListener('click', () => execModeration('/clear'));
     } else {
         card.querySelectorAll('.btn-sub').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1194,7 +1534,7 @@ document.querySelectorAll('.mod-card').forEach(card => {
                 else if (sub === 'emoteonly_off') execModeration('/emoteonlyoff');
                 else if (sub === 'slow_on') {
                     const sec = document.getElementById('slowSecondsInput') ? document.getElementById('slowSecondsInput').value : '30';
-                    execModeration('/slow ' + sec);
+                    execModeration('/slow ' + sec, { seconds: sec });
                 }
                 else if (sub === 'slow_off') execModeration('/slowoff');
                 else if (sub === 'subscribers_on') execModeration('/subscribers');
@@ -1216,13 +1556,16 @@ if (btnRunCustomMod) {
     });
 }
 
-document.getElementById('btnExecuteTimeout').addEventListener('click', () => {
-    const target = document.getElementById('timeoutUsername').value.trim();
-    const duration = document.getElementById('timeoutSeconds').value;
-    if (!target) return alert('Enter a username');
-    execModeration(`/timeout ${target} ${duration}`);
-    document.getElementById('timeoutUsername').value = '';
-});
+const btnExecuteTimeout = document.getElementById('btnExecuteTimeout');
+if (btnExecuteTimeout) {
+    btnExecuteTimeout.addEventListener('click', () => {
+        const target = document.getElementById('timeoutUsername').value.trim();
+        const duration = document.getElementById('timeoutSeconds').value;
+        if (!target) return alert('Enter a username');
+        execModeration(`/timeout ${target} ${duration}`, { action: 'timeout', target, duration });
+        document.getElementById('timeoutUsername').value = '';
+    });
+}
 
 // OBS Overlay Copy
 document.getElementById('btnCopyOverlay').addEventListener('click', () => {
@@ -2426,7 +2769,9 @@ async function checkOAuthRedirect() {
 
                     localStorage.setItem(getProfileKey('user'), username);
                     localStorage.setItem(getProfileKey('channel'), username);
+                    localStorage.setItem(getProfileKey('user_id'), userId);
                     localStorage.setItem(getProfileKey('oauth'), formattedToken);
+                    if (clientId) localStorage.setItem('msp_twitch_client_id', clientId);
 
                     botUsernameInput.value = username;
                     targetChannelInput.value = username;

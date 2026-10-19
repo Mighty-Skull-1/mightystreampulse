@@ -624,7 +624,9 @@
                 'chat:read',
                 'chat:edit',
                 'channel:moderate',
-                'whispers:read',
+                'moderator:manage:chat_settings',
+                'moderator:manage:chat_messages',
+                'moderator:manage:banned_users',
                 'user:read:email'
             ].join('+');
 
@@ -792,7 +794,9 @@
                 // Save bot credentials
                 localStorage.setItem(`msp_${profileId}_channel`, username);
                 localStorage.setItem(`msp_${profileId}_user`, username);
+                localStorage.setItem(`msp_${profileId}_user_id`, userId);
                 localStorage.setItem(`msp_${profileId}_oauth`, 'oauth:' + accessToken);
+                if (clientId) localStorage.setItem('msp_twitch_client_id', clientId);
                 if (avatarUrl) localStorage.setItem(`msp_${profileId}_avatar`, avatarUrl);
 
                 // Clean hash from URL and redirect to dashboard
