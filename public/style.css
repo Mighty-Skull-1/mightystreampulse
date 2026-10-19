@@ -504,25 +504,49 @@ body {
     overflow: hidden;
 }
 
-.action-card .card-delete {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
+.action-card .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0.65;
+    transition: opacity 0.2s;
+}
+
+.action-card:hover .card-actions {
+    opacity: 1;
+}
+
+.action-card .card-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    font-size: 0.85rem;
-    display: none;
-    padding: 4px;
+    font-size: 0.78rem;
+    transition: all 0.2s;
 }
 
-.action-card:hover .card-delete {
-    display: block;
+.action-card .card-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    transform: scale(1.08);
 }
 
-.action-card .card-delete:hover {
-    color: var(--danger);
+.action-card .card-btn.card-edit:hover {
+    background: rgba(145, 70, 255, 0.35);
+    border-color: #9146ff;
+    color: #d1b3ff;
+}
+
+.action-card .card-btn.card-delete:hover {
+    background: rgba(255, 79, 77, 0.3);
+    border-color: #ff4f4d;
+    color: #ff8080;
 }
 
 /* Floating Instant Chat Bar */

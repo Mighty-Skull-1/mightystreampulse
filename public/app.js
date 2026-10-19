@@ -1,13 +1,13 @@
 // MightyStreamPulse Client Engine (Works BOTH locally with Node.js and publicly on Netlify / Vercel)
 const defaultButtons = [
-    { id: 'welcome', title: 'Welcome Chat', category: 'Greet', icon: 'fa-hand-wave', message: '👋 Welcome into the stream everyone! Make sure to say hi in chat and hit that follow button!' },
-    { id: 'socials', title: 'Share Socials', category: 'Links', icon: 'fa-share-nodes', message: '🌐 Follow my socials! Twitter: @YourHandle | YouTube: @YourChannel | TikTok: @YourStream' },
+    { id: 'welcome', title: 'Welcome Chat', category: 'Greet', icon: 'fa-solid fa-hand', message: '👋 Welcome into the stream everyone! Make sure to say hi in chat and hit that follow button!' },
+    { id: 'socials', title: 'Share Socials', category: 'Links', icon: 'fa-solid fa-share-nodes', message: '🌐 Follow my socials! Twitter: @YourHandle | YouTube: @YourChannel | TikTok: @YourStream' },
     { id: 'discord', title: 'Discord Squad', category: 'Links', icon: 'fa-brands fa-discord', message: '💬 Looking for people to game with? Join our Discord community here: https://discord.gg/yourserver' },
-    { id: 'hype', title: 'Hype Wave', category: 'Hype', icon: 'fa-fire-flame-curved', message: '🔥🔥🔥 HYPE IN THE CHAT! Drop your favorite emotes right now! LET\'S GOOO! 🔥🔥🔥' },
-    { id: 'rules', title: 'Chat Rules', category: 'Mod', icon: 'fa-shield-halved', message: '📜 Chat Rules: 1. Be respectful to all. 2. No hate speech or harassment. 3. No links or self promo.' },
-    { id: 'hydrate', title: 'Hydrate Check', category: 'Gaming', icon: 'fa-bottle-water', message: '💧 HYDRATE CHECK! Remember to drink water and do a quick stretch, chat fam!' },
-    { id: 'gg', title: 'GG Big Play', category: 'Gaming', icon: 'fa-trophy', message: '🏆 GG! What an insane play! Drop some GGs in chat!' },
-    { id: 'prime', title: 'Prime Gaming Sub', category: 'Support', icon: 'fa-crown', message: '👑 Did you know? You get a FREE channel subscription every month with Amazon Prime! Type !prime to support the stream!' }
+    { id: 'hype', title: 'Hype Wave', category: 'Hype', icon: 'fa-solid fa-fire', message: '🔥🔥🔥 HYPE IN THE CHAT! Drop your favorite emotes right now! LET\'S GOOO! 🔥🔥🔥' },
+    { id: 'rules', title: 'Chat Rules', category: 'Mod', icon: 'fa-solid fa-shield-halved', message: '📜 Chat Rules: 1. Be respectful to all. 2. No hate speech or harassment. 3. No links or self promo.' },
+    { id: 'hydrate', title: 'Hydrate Check', category: 'Gaming', icon: 'fa-solid fa-bottle-water', message: '💧 HYDRATE CHECK! Remember to drink water and do a quick stretch, chat fam!' },
+    { id: 'gg', title: 'GG Big Play', category: 'Gaming', icon: 'fa-solid fa-trophy', message: '🏆 GG! What an insane play! Drop some GGs in chat!' },
+    { id: 'prime', title: 'Prime Gaming Sub', category: 'Support', icon: 'fa-solid fa-crown', message: '👑 Did you know? You get a FREE channel subscription every month with Amazon Prime! Type !prime to support the stream!' }
 ];
 
 const defaultTimers = [
@@ -242,28 +242,46 @@ function renderDeck() {
     deckButtons.forEach((btn, index) => {
         const card = document.createElement('div');
         card.className = 'action-card';
+
+        let iconClass = btn.icon || 'fa-solid fa-bolt';
+        if (iconClass === 'fa-hand-wave') iconClass = 'fa-solid fa-hand';
+        if (iconClass === 'fa-fire-flame-curved') iconClass = 'fa-solid fa-fire';
+        if (!iconClass.startsWith('fa-')) iconClass = 'fa-solid ' + iconClass;
+        if (!iconClass.includes(' ')) iconClass = 'fa-solid ' + iconClass;
+
         card.innerHTML = `
             <div class="card-top">
-                <i class="card-icon ${btn.icon || 'fa-solid fa-comment-dots'}"></i>
-                <span class="card-badge">${btn.category || 'Chat'}</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="card-icon ${iconClass}"></i>
+                    <span class="card-badge">${escapeHtml(btn.category || 'Chat')}</span>
+                </div>
+                <div class="card-actions">
+                    <button class="card-btn card-edit" title="Edit Button" data-index="${index}"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="card-btn card-delete" title="Delete Button" data-index="${index}"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
             </div>
             <div class="card-title">${escapeHtml(btn.title)}</div>
             <div class="card-desc" title="${escapeHtml(btn.message)}">${escapeHtml(btn.message)}</div>
-            <button class="card-delete" title="Delete" data-index="${index}"><i class="fa-solid fa-xmark"></i></button>
         `;
 
         card.addEventListener('click', (e) => {
-            if (e.target.closest('.card-delete')) return;
+            if (e.target.closest('.card-actions')) return;
             sendChatMessage(btn.message);
             playFx('ding');
         });
 
-        const delBtn = card.querySelector('.card-delete');
-        delBtn.addEventListener('click', (e) => {
+        card.querySelector('.card-edit').addEventListener('click', (e) => {
             e.stopPropagation();
-            deckButtons.splice(index, 1);
-            localStorage.setItem(getProfileKey('buttons'), JSON.stringify(deckButtons));
-            renderDeck();
+            openDeckModal(index);
+        });
+
+        card.querySelector('.card-delete').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete the "${btn.title}" button?`)) {
+                deckButtons.splice(index, 1);
+                localStorage.setItem(getProfileKey('buttons'), JSON.stringify(deckButtons));
+                renderDeck();
+            }
         });
 
         deckGrid.appendChild(card);
@@ -659,7 +677,10 @@ document.querySelectorAll('.mod-card').forEach(card => {
                 const sub = btn.getAttribute('data-sub');
                 if (sub === 'emoteonly_on') execModeration('/emoteonly');
                 else if (sub === 'emoteonly_off') execModeration('/emoteonlyoff');
-                else if (sub === 'slow_on') execModeration('/slow 30');
+                else if (sub === 'slow_on') {
+                    const sec = document.getElementById('slowSecondsInput') ? document.getElementById('slowSecondsInput').value : '30';
+                    execModeration('/slow ' + sec);
+                }
                 else if (sub === 'slow_off') execModeration('/slowoff');
                 else if (sub === 'subscribers_on') execModeration('/subscribers');
                 else if (sub === 'subscribers_off') execModeration('/subscribersoff');
@@ -667,6 +688,18 @@ document.querySelectorAll('.mod-card').forEach(card => {
         });
     }
 });
+
+const btnRunCustomMod = document.getElementById('btnRunCustomMod');
+if (btnRunCustomMod) {
+    btnRunCustomMod.addEventListener('click', () => {
+        const input = document.getElementById('customModCmdInput');
+        let cmd = input.value.trim();
+        if (!cmd) return alert('Enter a mod command to execute (e.g. /followers 10m)');
+        if (!cmd.startsWith('/')) cmd = '/' + cmd;
+        execModeration(cmd);
+        input.value = '';
+    });
+}
 
 document.getElementById('btnExecuteTimeout').addEventListener('click', () => {
     const target = document.getElementById('timeoutUsername').value.trim();
@@ -907,25 +940,60 @@ chatForm.addEventListener('submit', (e) => {
     }
 });
 
-// Add Deck Button Modal
+// Add & Edit Deck Button Modal
 const addBtnModal = document.getElementById('addBtnModal');
-document.getElementById('btnOpenAddModal').addEventListener('click', () => addBtnModal.classList.add('open'));
+const modalDeckTitle = document.getElementById('modalDeckTitle');
+const modalBtnIndex = document.getElementById('modalBtnIndex');
+const modalBtnTitle = document.getElementById('modalBtnTitle');
+const modalBtnCategory = document.getElementById('modalBtnCategory');
+const modalBtnIcon = document.getElementById('modalBtnIcon');
+const modalBtnMsg = document.getElementById('modalBtnMsg');
+
+function openDeckModal(index = -1) {
+    if (!modalBtnIndex) return;
+    modalBtnIndex.value = index;
+    if (index >= 0 && deckButtons[index]) {
+        const btn = deckButtons[index];
+        if (modalDeckTitle) modalDeckTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Stream Deck Button';
+        modalBtnTitle.value = btn.title || '';
+        modalBtnCategory.value = btn.category || 'Hype';
+        modalBtnIcon.value = btn.icon || 'fa-solid fa-bolt';
+        modalBtnMsg.value = btn.message || '';
+    } else {
+        if (modalDeckTitle) modalDeckTitle.innerHTML = '<i class="fa-solid fa-bolt"></i> Create Stream Deck Button';
+        modalBtnTitle.value = '';
+        modalBtnCategory.value = 'Hype';
+        modalBtnIcon.value = 'fa-solid fa-bolt';
+        modalBtnMsg.value = '';
+    }
+    addBtnModal.classList.add('open');
+}
+
+document.getElementById('btnOpenAddModal').addEventListener('click', () => openDeckModal(-1));
 document.getElementById('btnCloseModal').addEventListener('click', () => addBtnModal.classList.remove('open'));
 document.getElementById('btnCancelModal').addEventListener('click', () => addBtnModal.classList.remove('open'));
 
 document.getElementById('btnConfirmAdd').addEventListener('click', () => {
-    const title = document.getElementById('modalBtnTitle').value.trim();
-    const category = document.getElementById('modalBtnCategory').value;
-    const message = document.getElementById('modalBtnMsg').value.trim();
+    const index = parseInt(modalBtnIndex.value, 10);
+    const title = modalBtnTitle.value.trim();
+    const category = modalBtnCategory.value;
+    const icon = modalBtnIcon.value;
+    const message = modalBtnMsg.value.trim();
 
-    if (!title || !message) return alert('Fill in both title and message.');
+    if (!title || !message) return alert('Please fill in both the button title and the chat message.');
 
-    deckButtons.push({ id: 'btn_' + Date.now(), title, category, icon: 'fa-solid fa-bolt', message });
+    if (index >= 0 && deckButtons[index]) {
+        deckButtons[index].title = title;
+        deckButtons[index].category = category;
+        deckButtons[index].icon = icon;
+        deckButtons[index].message = message;
+    } else {
+        deckButtons.push({ id: 'btn_' + Date.now(), title, category, icon, message });
+    }
+
     localStorage.setItem(getProfileKey('buttons'), JSON.stringify(deckButtons));
     renderDeck();
     addBtnModal.classList.remove('open');
-    document.getElementById('modalBtnTitle').value = '';
-    document.getElementById('modalBtnMsg').value = '';
 });
 
 // Credentials & Connections

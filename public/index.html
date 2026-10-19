@@ -235,8 +235,17 @@
 
                             <div class="mod-card" data-action="slow">
                                 <i class="fa-solid fa-gauge-simple-high mod-icon" style="color: #00f0ff;"></i>
-                                <div class="mod-title">Slow Mode (30s)</div>
-                                <p>Restricts viewers from posting more than once every 30 seconds.</p>
+                                <div class="mod-title">Slow Mode</div>
+                                <p>Limit how often viewers can post.</p>
+                                <div style="margin-bottom: 8px;">
+                                    <select id="slowSecondsInput" style="width: 100%; padding: 6px 8px; font-size: 0.8rem; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid var(--border-subtle); border-radius: 6px;">
+                                        <option value="5">5 Seconds</option>
+                                        <option value="10">10 Seconds</option>
+                                        <option value="30" selected>30 Seconds</option>
+                                        <option value="60">60 Seconds (1 min)</option>
+                                        <option value="120">120 Seconds (2 min)</option>
+                                    </select>
+                                </div>
                                 <div class="btn-group">
                                     <button class="btn btn-secondary btn-sub" data-sub="slow_on">Enable</button>
                                     <button class="btn btn-secondary btn-sub" data-sub="slow_off">Disable</button>
@@ -266,6 +275,16 @@
                                         <option value="3600">1 Hour</option>
                                     </select>
                                     <button id="btnExecuteTimeout" class="btn btn-secondary"><i class="fa-solid fa-ban"></i> Timeout</button>
+                                </div>
+                            </div>
+
+                            <div class="mod-card custom-mod-card">
+                                <i class="fa-solid fa-terminal mod-icon" style="color: #10b981;"></i>
+                                <div class="mod-title">Custom Mod Command</div>
+                                <p>Execute any Twitch chat command directly.</p>
+                                <div style="display: flex; gap: 6px; margin-top: 6px;">
+                                    <input type="text" id="customModCmdInput" placeholder="e.g. /followers 10m" style="flex: 1; padding: 7px 10px; font-size: 0.85rem; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid var(--border-subtle); border-radius: 6px;">
+                                    <button id="btnRunCustomMod" class="btn btn-primary" style="padding: 7px 14px;"><i class="fa-solid fa-play"></i> Run</button>
                                 </div>
                             </div>
                         </div>
@@ -390,17 +409,38 @@
         </main>
     </div>
 
-    <!-- Modal for adding custom buttons -->
+    <!-- Modal for adding/editing custom buttons -->
     <div class="modal-overlay" id="addBtnModal">
         <div class="modal-card">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-plus-circle"></i> Create Stream Deck Button</h3>
+                <h3 id="modalDeckTitle"><i class="fa-solid fa-bolt"></i> Stream Deck Button</h3>
                 <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
+                <input type="hidden" id="modalBtnIndex" value="-1">
                 <div class="form-group">
                     <label>Button Title</label>
                     <input type="text" id="modalBtnTitle" placeholder="e.g. Squad Discord Link">
+                </div>
+                <div class="form-group">
+                    <label>Card Icon</label>
+                    <select id="modalBtnIcon">
+                        <option value="fa-solid fa-bolt">⚡ Bolt</option>
+                        <option value="fa-solid fa-hand">👋 Greet / Wave</option>
+                        <option value="fa-solid fa-share-nodes">🌐 Share / Socials</option>
+                        <option value="fa-brands fa-discord">💬 Discord</option>
+                        <option value="fa-solid fa-fire">🔥 Fire / Hype</option>
+                        <option value="fa-solid fa-shield-halved">🛡️ Shield / Rules</option>
+                        <option value="fa-solid fa-bottle-water">💧 Water / Hydrate</option>
+                        <option value="fa-solid fa-trophy">🏆 Trophy / GG</option>
+                        <option value="fa-solid fa-crown">👑 Crown / Prime</option>
+                        <option value="fa-solid fa-gamepad">🎮 Gamepad</option>
+                        <option value="fa-solid fa-heart">❤️ Heart</option>
+                        <option value="fa-solid fa-star">⭐ Star</option>
+                        <option value="fa-solid fa-comment-dots">💬 Chat</option>
+                        <option value="fa-solid fa-music">🎵 Music</option>
+                        <option value="fa-solid fa-bullhorn">📢 Announcement</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Category Tag</label>
@@ -420,7 +460,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="btnCancelModal">Cancel</button>
-                <button class="btn btn-primary" id="btnConfirmAdd">Save & Add to Deck</button>
+                <button class="btn btn-primary" id="btnConfirmAdd">Save Button</button>
             </div>
         </div>
     </div>
