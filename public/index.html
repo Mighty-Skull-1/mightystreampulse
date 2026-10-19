@@ -92,10 +92,7 @@
             <header class="top-bar">
                 <div class="active-channel-info">
                     <span class="badge"><i class="fa-solid fa-tower-broadcast"></i> LIVE CHANNEL</span>
-                    <h1 id="headerChannel" class="header-channel-title" title="Click to edit channel name">Not Connected</h1>
-                    <button id="btnEditChannelHeader" class="header-channel-edit-btn" title="Edit / Switch Channel Name">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
+                    <h1 id="headerChannel">Not Connected</h1>
                 </div>
 
                 <div class="top-controls">
@@ -554,38 +551,6 @@
             <div class="modal-footer" style="display: flex; justify-content: space-between;">
                 <button class="btn btn-secondary" id="btnSbResetDefaults" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-rotate-left"></i> Reset Defaults</button>
                 <button class="btn btn-secondary" id="btnCancelSoundModal">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal for Editing Live Channel & Streamer Profile Name -->
-    <div class="modal-overlay" id="channelEditModal">
-        <div class="modal-card" style="max-width: 440px;">
-            <div class="modal-header">
-                <h3><i class="fa-solid fa-tower-broadcast"></i> Edit Channel & Stream Name</h3>
-                <button class="modal-close" id="btnCloseChannelModal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
-                    Change your active Twitch channel and profile display name. The bot will automatically listen and post into this channel.
-                </p>
-                <div class="form-group">
-                    <label>Target Twitch Channel Name</label>
-                    <div style="position: relative; display: flex; align-items: center;">
-                        <span style="position: absolute; left: 12px; color: var(--text-muted); font-weight: 700;">#</span>
-                        <input type="text" id="modalInputChannel" placeholder="e.g. mightyttv0" style="padding-left: 28px;">
-                    </div>
-                    <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">The Twitch channel chat you want to broadcast to and moderate.</small>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>Profile Display Name</label>
-                    <input type="text" id="modalInputProfileName" placeholder="e.g. Mighty Skull / Streamer Name">
-                    <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">Display name shown in your dashboard top bar.</small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="btnCancelChannelModal">Cancel</button>
-                <button class="btn btn-primary" id="btnSaveChannelModal"><i class="fa-solid fa-check"></i> Save & Switch</button>
             </div>
         </div>
     </div>

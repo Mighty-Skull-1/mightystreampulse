@@ -382,37 +382,6 @@ body {
     gap: 12px;
 }
 
-.header-channel-title {
-    cursor: pointer;
-    transition: color 0.2s ease;
-    user-select: none;
-}
-
-.header-channel-title:hover {
-    color: var(--primary);
-}
-
-.header-channel-edit-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border-subtle);
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.header-channel-edit-btn:hover {
-    color: #00f0ff;
-    border-color: #00f0ff;
-    background: rgba(0, 240, 255, 0.12);
-    transform: scale(1.05);
-}
-
 .badge {
     background: rgba(0, 240, 255, 0.1);
     color: var(--accent);
