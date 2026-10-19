@@ -19,7 +19,7 @@
 
         .auth-container {
             width: 100%;
-            max-width: 460px;
+            max-width: 480px;
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
             border-radius: 16px;
@@ -105,6 +105,53 @@
             line-height: 1.4;
         }
 
+        .twitch-api-login-box {
+            background: rgba(145, 70, 255, 0.1);
+            border: 1px solid rgba(145, 70, 255, 0.35);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .twitch-api-login-box h3 {
+            font-size: 1rem;
+            margin-bottom: 6px;
+            color: #fff;
+        }
+
+        .twitch-api-login-box p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 14px;
+            line-height: 1.4;
+        }
+
+        .btn-twitch-lg {
+            background: #9146ff;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 15px rgba(145, 70, 255, 0.4);
+            transition: all 0.2s;
+        }
+
+        .btn-twitch-lg:hover {
+            background: #772ce8;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(145, 70, 255, 0.6);
+        }
+
         .profile-list-item {
             background: #141418;
             border: 1px solid var(--border-subtle);
@@ -114,20 +161,20 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 10px;
-            cursor: pointer;
             transition: all 0.2s;
         }
 
         .profile-list-item:hover {
             border-color: var(--primary);
             background: #1c1c24;
-            transform: translateX(4px);
         }
 
         .profile-info {
             display: flex;
             flex-direction: column;
             gap: 2px;
+            flex: 1;
+            cursor: pointer;
         }
 
         .profile-name {
@@ -138,6 +185,48 @@
         .profile-chan {
             font-size: 0.78rem;
             color: var(--accent);
+        }
+
+        .profile-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-del-profile {
+            background: transparent;
+            border: 1px solid #333;
+            color: #888;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-del-profile:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .btn-open-profile {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+
+        .btn-open-profile:hover {
+            background: var(--primary-hover);
         }
 
         .empty-profiles {
@@ -166,49 +255,69 @@
             </div>
         </div>
 
+        <!-- 1-Click Twitch API Authorization -->
+        <div class="twitch-api-login-box">
+            <h3><i class="fa-brands fa-twitch" style="color: #9146ff;"></i> Verify & Connect With Twitch API</h3>
+            <p>Generate a secure Twitch token to verify your account so no one can misuse your channel.</p>
+            <a href="https://twitchapps.com/tmi/" target="_blank" class="btn-twitch-lg">
+                <i class="fa-brands fa-twitch"></i> Connect with Twitch API
+            </a>
+        </div>
+
         <!-- Tabs -->
         <div class="auth-tabs">
-            <button class="auth-tab-btn active" id="tabLoginBtn"><i class="fa-solid fa-user-check"></i> Sign In</button>
-            <button class="auth-tab-btn" id="tabRegisterBtn"><i class="fa-solid fa-user-plus"></i> New Streamer</button>
+            <button class="auth-tab-btn active" id="tabLoginBtn"><i class="fa-solid fa-user-check"></i> Saved Profiles</button>
+            <button class="auth-tab-btn" id="tabRegisterBtn"><i class="fa-solid fa-user-plus"></i> Add Profile</button>
         </div>
 
         <!-- Panel 1: Select Profile & Sign In -->
         <div class="auth-form-panel active" id="panelLogin">
-            <p class="auth-desc">Select your saved streamer profile to load your customized action deck, timers, and commands.</p>
-            <div id="profilesContainer">
-                <!-- Dynamically rendered list of profiles -->
-            </div>
+            <p class="auth-desc">Choose a streamer profile on this browser to load your private deck and credentials:</p>
+            <div id="profilesContainer"></div>
         </div>
 
         <!-- Panel 2: Register New Profile -->
         <div class="auth-form-panel" id="panelRegister">
-            <p class="auth-desc">Create your own private streamer profile. Your credentials and buttons will be stored strictly in your browser.</p>
+            <p class="auth-desc">Create a profile for your channel. Everything is stored privately in your browser.</p>
             <form id="createProfileForm">
                 <div class="form-group">
                     <label>Profile / Streamer Name</label>
-                    <input type="text" id="regProfileName" placeholder="e.g. MyStreamChannel" required autocomplete="off">
+                    <input type="text" id="regProfileName" placeholder="e.g. MyChannel" required autocomplete="off">
                     <small>Name used to identify your setup.</small>
                 </div>
                 <div class="form-group">
                     <label>Twitch Channel Name</label>
                     <input type="text" id="regChannelName" placeholder="e.g. your_twitch_name" required autocomplete="off">
-                    <small>The Twitch channel your bot will join and send messages to.</small>
+                    <small>The Twitch channel your bot will speak in.</small>
+                </div>
+                <div class="form-group">
+                    <label>Twitch OAuth Token (Optional now, can set inside)</label>
+                    <input type="password" id="regOauthToken" placeholder="oauth:••••••••••••••••" autocomplete="off">
                 </div>
                 <button type="submit" class="btn btn-primary btn-full" style="margin-top: 10px;">
-                    <i class="fa-solid fa-arrow-right"></i> Create & Launch Dashboard
+                    <i class="fa-solid fa-arrow-right"></i> Save & Launch Dashboard
                 </button>
             </form>
         </div>
     </div>
 
     <script>
-        // Clean and sanitize channel name input
         function sanitizeChannel(input) {
             if (!input) return '';
             let val = input.trim().toLowerCase();
             val = val.replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '');
             val = val.replace(/^#/, '');
             return val.split('/')[0].split('?')[0];
+        }
+
+        // Clean initial test artifact profile if URL was accidentally saved as channel
+        function cleanupProfilesList(profiles) {
+            return profiles.map(p => {
+                if (p.channel) {
+                    p.channel = sanitizeChannel(p.channel);
+                }
+                return p;
+            });
         }
 
         // Tab Switching
@@ -231,10 +340,13 @@
             panelLogin.classList.remove('active');
         });
 
-        // Load Profiles
+        // Load Profiles with Delete Button
         function loadProfiles() {
             const rawList = localStorage.getItem('msp_profiles_list');
-            const profiles = rawList ? JSON.parse(rawList) : [];
+            let profiles = rawList ? JSON.parse(rawList) : [];
+            profiles = cleanupProfilesList(profiles);
+            localStorage.setItem('msp_profiles_list', JSON.stringify(profiles));
+
             const container = document.getElementById('profilesContainer');
             container.innerHTML = '';
 
@@ -242,15 +354,14 @@
                 container.innerHTML = `
                     <div class="empty-profiles">
                         <i class="fa-solid fa-user-slash"></i>
-                        No saved profiles found.<br>Click <strong>New Streamer</strong> above to create your profile!
+                        No saved profiles found.<br>Click <strong>Add Profile</strong> above to get started!
                     </div>
                 `;
-                // If no profiles, auto-switch to registration tab
                 tabRegisterBtn.click();
                 return;
             }
 
-            profiles.forEach(p => {
+            profiles.forEach((p, idx) => {
                 const item = document.createElement('div');
                 item.className = 'profile-list-item';
                 item.innerHTML = `
@@ -258,14 +369,49 @@
                         <span class="profile-name"><i class="fa-solid fa-circle-user" style="color: var(--primary); margin-right: 6px;"></i>${escapeHtml(p.name)}</span>
                         <span class="profile-chan">${p.channel ? '#' + escapeHtml(p.channel) : 'Channel not set'}</span>
                     </div>
-                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
-                        Open <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
-                    </button>
+                    <div class="profile-actions">
+                        <button class="btn-open-profile">
+                            Open <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button class="btn-del-profile" title="Delete Profile">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
                 `;
 
-                item.addEventListener('click', () => {
+                // Open profile
+                item.querySelector('.btn-open-profile').addEventListener('click', (e) => {
+                    e.stopPropagation();
                     localStorage.setItem('msp_active_profile', p.id);
                     window.location.href = 'index.html';
+                });
+                item.querySelector('.profile-info').addEventListener('click', () => {
+                    localStorage.setItem('msp_active_profile', p.id);
+                    window.location.href = 'index.html';
+                });
+
+                // Delete profile
+                item.querySelector('.btn-del-profile').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Are you sure you want to remove the profile "${p.name}"?`)) {
+                        profiles.splice(idx, 1);
+                        localStorage.setItem('msp_profiles_list', JSON.stringify(profiles));
+
+                        // If active profile was removed, reset active key
+                        if (localStorage.getItem('msp_active_profile') === p.id) {
+                            localStorage.removeItem('msp_active_profile');
+                        }
+
+                        // Remove profile keys
+                        localStorage.removeItem(`msp_${p.id}_buttons`);
+                        localStorage.removeItem(`msp_${p.id}_timers`);
+                        localStorage.removeItem(`msp_${p.id}_commands`);
+                        localStorage.removeItem(`msp_${p.id}_user`);
+                        localStorage.removeItem(`msp_${p.id}_oauth`);
+                        localStorage.removeItem(`msp_${p.id}_channel`);
+
+                        loadProfiles();
+                    }
                 });
 
                 container.appendChild(item);
@@ -277,6 +423,7 @@
             e.preventDefault();
             const name = document.getElementById('regProfileName').value.trim();
             const channel = sanitizeChannel(document.getElementById('regChannelName').value);
+            const oauth = document.getElementById('regOauthToken').value.trim();
 
             if (!name || !channel) {
                 alert('Please provide both your profile name and Twitch channel.');
@@ -291,10 +438,12 @@
             localStorage.setItem('msp_profiles_list', JSON.stringify(profiles));
             localStorage.setItem('msp_active_profile', newId);
 
-            // Seed initial channel for this profile
             localStorage.setItem(`msp_${newId}_channel`, channel);
+            if (oauth) {
+                const token = oauth.startsWith('oauth:') ? oauth : 'oauth:' + oauth;
+                localStorage.setItem(`msp_${newId}_oauth`, token);
+            }
 
-            // Redirect to main commander dashboard
             window.location.href = 'index.html';
         });
 
