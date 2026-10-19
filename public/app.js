@@ -28,9 +28,15 @@ const defaultCommands = {
 let currentProfileId = localStorage.getItem('msp_active_profile');
 let allProfiles = JSON.parse(localStorage.getItem('msp_profiles_list')) || [];
 
-// If no active profile or empty profile list, redirect directly to the dedicated login page
+// If no active profile, create a default profile so the user can immediately use the dashboard
 if (!currentProfileId || allProfiles.length === 0 || !allProfiles.some(p => p.id === currentProfileId)) {
-    window.location.href = 'login.html';
+    const defaultChan = 'mightyttv0';
+    currentProfileId = currentProfileId || 'prof_default';
+    localStorage.setItem('msp_active_profile', currentProfileId);
+    if (!allProfiles.some(p => p.id === currentProfileId)) {
+        allProfiles.push({ id: currentProfileId, name: defaultChan, channel: defaultChan });
+        localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
+    }
 }
 
 function getProfileKey(key) {
