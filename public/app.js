@@ -570,8 +570,25 @@ async function sendChatMessage(message) {
     }
 }
 
+// Message Deduplication Cache (blocks identical duplicate echoes within 3 seconds)
+let recentMessagesCache = [];
+function isDuplicateMessage(displayName, message) {
+    const now = Date.now();
+    const cleanMsg = (message || '').trim();
+    recentMessagesCache = recentMessagesCache.filter(m => now - m.time < 3000);
+    const isDup = recentMessagesCache.some(m => (m.user || '').toLowerCase() === (displayName || '').toLowerCase() && m.msg === cleanMsg);
+    if (!isDup) {
+        recentMessagesCache.push({ user: displayName || '', msg: cleanMsg, time: now });
+    }
+    return isDup;
+}
+
 // Append Chat Message
 function appendChatMessage(data) {
+    if (isDuplicateMessage(data.displayName, data.message)) {
+        return;
+    }
+
     const emptyState = chatFeed.querySelector('.empty-state');
     if (emptyState) emptyState.remove();
 
@@ -683,33 +700,32 @@ function startHeartbeatWorker() {
 
 // 3. Keep-Alive Watchdog: checks socket state, sends IRC pings, and auto-revives connection if dropped
 async function runKeepAliveWatchdog() {
-    if (userExplicitlyDisconnected) return;
+    if (userExplicitlyDisconnected || isConnectingTmi) return;
 
     const savedUser = localStorage.getItem(getProfileKey('user')) || '';
     const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
     const savedChan = localStorage.getItem(getProfileKey('channel')) || '';
     if (!savedUser || !savedOauth || !savedChan) return;
 
-    // Check if clientTmi is missing or connection has closed/closing
-    const isSocketOpen = clientTmi && typeof clientTmi.readyState === 'function' && clientTmi.readyState() === 'OPEN';
-
-    if (!isSocketOpen) {
-        console.log('[MightyStreamPulse Shield] Connection dropped or sleeping. Auto-reviving chat connection...');
-        updateStatusUI('connecting', savedChan);
-        try {
-            await connectClientTmi(savedUser, savedOauth, savedChan, true);
-        } catch (e) {
-            console.warn('[MightyStreamPulse Shield] Auto-revive attempt error:', e);
-        }
-    } else {
-        // Socket is open - send a lightweight ping to keep connection warm through NAT/routers
-        try {
-            if (typeof clientTmi.ping === 'function') {
-                clientTmi.ping().catch(() => {});
-            } else if (typeof clientTmi.raw === 'function') {
-                clientTmi.raw('PING').catch(() => {});
+    // Check if client is ALREADY OPEN or in the middle of CONNECTING
+    if (clientTmi && typeof clientTmi.readyState === 'function') {
+        const state = clientTmi.readyState();
+        if (state === 'OPEN' || state === 'CONNECTING') {
+            if (state === 'OPEN') {
+                try {
+                    if (typeof clientTmi.ping === 'function') clientTmi.ping().catch(() => {});
+                } catch (e) {}
             }
-        } catch (e) {}
+            return;
+        }
+    }
+
+    console.log('[MightyStreamPulse Shield] Connection dropped. Auto-reviving chat connection...');
+    updateStatusUI('connecting', savedChan);
+    try {
+        await connectClientTmi(savedUser, savedOauth, savedChan, true);
+    } catch (e) {
+        console.warn('[MightyStreamPulse Shield] Auto-revive attempt error:', e);
     }
 }
 
@@ -749,18 +765,28 @@ window.addEventListener('online', () => {
 });
 
 // Connect Logic (Direct Browser Client Mode)
+let isConnectingTmi = false;
 async function connectClientTmi(username, oauth, channel, isAutoReconnect = false) {
+    if (isConnectingTmi) {
+        console.log('[MightyStreamPulse] Connection already in progress. Skipping duplicate connect call.');
+        return false;
+    }
+
     userExplicitlyDisconnected = false;
     startBackgroundKeepAlive();
 
+    // Properly tear down and remove all listeners from any previous client instance
     if (clientTmi) {
         try {
-            if (clientTmi.readyState() === 'OPEN') {
-                await clientTmi.disconnect();
+            if (typeof clientTmi.removeAllListeners === 'function') {
+                clientTmi.removeAllListeners();
             }
+            await clientTmi.disconnect();
         } catch (e) {}
         clientTmi = null;
     }
+
+    isConnectingTmi = true;
 
     let token = (oauth || '').trim();
     if (!token) {
@@ -883,10 +909,12 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
     });
 
     clientTmi.on('message', async (channelName, tags, message, self) => {
-        // Skip echo if sent by our own bot/dashboard (already added once as MightyStreamPulse Bot)
-        if (self) return;
-
         const chatter = tags['display-name'] || tags.username;
+        const chatterLower = (tags.username || tags['display-name'] || '').toLowerCase();
+        const botUserLower = (user || '').toLowerCase();
+
+        // Skip echo if sent by our own bot/dashboard (already added once as MightyStreamPulse Bot)
+        if (self || chatterLower === botUserLower) return;
         clientStats.messagesReceived++;
         if (chatter) clientStats.activeChatters[chatter] = (clientStats.activeChatters[chatter] || 0) + 1;
         updateStatsUI(clientStats);
@@ -988,6 +1016,8 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
             console.warn('[MightyStreamPulse Shield] Background reconnect attempt:', err.message || err);
         }
         return false;
+    } finally {
+        isConnectingTmi = false;
     }
 }
 
