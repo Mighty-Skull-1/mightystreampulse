@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MightyStreamPulse - Twitch Commander & Automation Hub</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <!-- Confetti canvas container -->
+    <canvas id="hypeCanvas"></canvas>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation / Settings -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-badge"><i class="fa-solid fa-bolt"></i></div>
+                <div>
+                    <h2>MightyStreamPulse</h2>
+                    <span class="subtext">Twitch Commander Pro</span>
+                </div>
+            </div>
+
+            <!-- Status Card -->
+            <div class="status-card">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <div class="status-info">
+                    <span class="status-title">Connection Status</span>
+                    <span class="status-text" id="statusText">Disconnected</span>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-tab="tab-deck"><i class="fa-solid fa-gamepad"></i> Stream Deck</button>
+                <button class="nav-btn" data-tab="tab-interactive"><i class="fa-solid fa-dice"></i> Mini-Games & Polls</button>
+                <button class="nav-btn" data-tab="tab-mod"><i class="fa-solid fa-shield-halved"></i> Quick Mod Desk</button>
+                <button class="nav-btn" data-tab="tab-timers"><i class="fa-solid fa-clock"></i> Timed Announcements</button>
+                <button class="nav-btn" data-tab="tab-commands"><i class="fa-solid fa-terminal"></i> Bot Chat Commands</button>
+                <button class="nav-btn" data-tab="tab-overlay"><i class="fa-solid fa-video"></i> OBS Overlay Setup</button>
+                <button class="nav-btn" data-tab="tab-settings"><i class="fa-solid fa-sliders"></i> Bot Credentials</button>
+            </nav>
+
+            <!-- TTS Voice Toggle -->
+            <div class="tts-box">
+                <div class="tts-header">
+                    <i class="fa-solid fa-microphone-lines"></i>
+                    <span>Chat Speech (TTS)</span>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="ttsToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <!-- Soundboard Quick FX -->
+            <div class="sound-fx-box">
+                <h4><i class="fa-solid fa-volume-high"></i> Soundboard FX</h4>
+                <div class="fx-buttons">
+                    <button class="fx-btn" data-sound="hype">🎉 Fanfare</button>
+                    <button class="fx-btn" data-sound="applause">👏 Applause</button>
+                    <button class="fx-btn" data-sound="ding">🔔 Bell</button>
+                    <button class="fx-btn" data-sound="drum">🥁 Ba-dum-tss</button>
+                </div>
+            </div>
+
+            <!-- Mini Channel Stats Box -->
+            <div class="stats-mini-box">
+                <div class="stat-item">
+                    <span class="val" id="sentCount">0</span>
+                    <span class="lbl">Sent</span>
+                </div>
+                <div class="stat-item">
+                    <span class="val" id="recvCount">0</span>
+                    <span class="lbl">Received</span>
+                </div>
+                <div class="stat-item">
+                    <span class="val" id="chatterCount">0</span>
+                    <span class="lbl">Chatters</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Top Navigation Bar -->
+            <header class="top-bar">
+                <div class="active-channel-info">
+                    <span class="badge"><i class="fa-solid fa-tower-broadcast"></i> LIVE CHANNEL</span>
+                    <h1 id="headerChannel">Not Connected</h1>
+                </div>
+
+                <div class="top-controls">
+                    <button id="btnHypeTrain" class="btn btn-hype"><i class="fa-solid fa-wand-magic-sparkles"></i> Hype Train Alert</button>
+                    <button id="btnToggleChat" class="btn btn-secondary btn-icon" title="Toggle Chat Panel"><i class="fa-solid fa-comments"></i></button>
+                </div>
+            </header>
+
+            <div class="content-split">
+                <!-- Tab 1: Stream Deck (Action Grid) -->
+                <div class="tab-content active" id="tab-deck">
+                    <div class="panel-inner">
+                        <div class="section-banner">
+                            <div>
+                                <h2>1-Click Action Pad</h2>
+                                <p>Click any card to fire messages, links, or alerts immediately into Twitch chat.</p>
+                            </div>
+                            <button id="btnOpenAddModal" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add New Button</button>
+                        </div>
+
+                        <!-- Buttons Grid -->
+                        <div class="buttons-grid" id="deckGrid"></div>
+
+                        <!-- Instant Chat Floating Bar -->
+                        <div class="quick-sender-dock">
+                            <form id="chatForm">
+                                <i class="fa-solid fa-bolt chat-input-icon"></i>
+                                <input type="text" id="customInput" placeholder="Instant type to chat (Press Enter to send)..." autocomplete="off">
+                                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Interactive Mini-Games & Polls -->
+                <div class="tab-content" id="tab-interactive">
+                    <div class="panel-inner">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Interactive Chat Mini-Games & Live Polls</h2>
+                                <p>Drive massive chat participation with live viewer polls, giveaway lotteries, and chat trivia.</p>
+                            </div>
+                        </div>
+
+                        <div class="interactive-grid">
+                            <!-- Live Chat Polls -->
+                            <div class="card-box">
+                                <h3><i class="fa-solid fa-chart-pie" style="color: #00f0ff;"></i> Live Chat Poll</h3>
+                                <p class="card-sub">Viewers vote live by simply typing 1, 2, 3 in chat!</p>
+                                <div class="form-group">
+                                    <label>Question</label>
+                                    <input type="text" id="pollQuestionInput" placeholder="e.g. Which hero should I play next?">
+                                </div>
+                                <div class="form-group">
+                                    <label>Options (comma separated)</label>
+                                    <input type="text" id="pollOptionsInput" placeholder="e.g. Tracer, Genji, Reaper">
+                                </div>
+                                <div class="btn-row">
+                                    <button id="btnStartPoll" class="btn btn-primary"><i class="fa-solid fa-play"></i> Launch Poll</button>
+                                    <button id="btnEndPoll" class="btn btn-secondary"><i class="fa-solid fa-stop"></i> End Poll</button>
+                                </div>
+                                <div id="pollLiveDisplay" class="poll-results-preview" style="display: none;">
+                                    <h4 id="previewPollQ"></h4>
+                                    <div id="previewPollOpts"></div>
+                                </div>
+                            </div>
+
+                            <!-- Chat Giveaway Picker -->
+                            <div class="card-box">
+                                <h3><i class="fa-solid fa-gift" style="color: #ff007f;"></i> Chat Giveaway Lottery</h3>
+                                <p class="card-sub">Choose a keyword. Viewers who type it enter the draw!</p>
+                                <div class="form-group">
+                                    <label>Entry Keyword</label>
+                                    <input type="text" id="giveawayKeyword" value="!win">
+                                </div>
+                                <div class="giveaway-status">
+                                    <span>Entrants: <strong id="giveawayEntrantsCount" style="color: #00f0ff;">0</strong></span>
+                                </div>
+                                <div class="btn-row">
+                                    <button id="btnStartGiveaway" class="btn btn-primary"><i class="fa-solid fa-bullhorn"></i> Start Giveaway</button>
+                                    <button id="btnPickWinner" class="btn btn-hype"><i class="fa-solid fa-trophy"></i> Pick Winner</button>
+                                    <button id="btnEndGiveaway" class="btn btn-secondary">Reset</button>
+                                </div>
+                                <div id="giveawayWinnerBox" class="winner-banner" style="display: none;">
+                                    🎉 Winner: <span id="winnerName" style="color: #ffd700; font-weight: 700;"></span>
+                                </div>
+                            </div>
+
+                            <!-- Chat Trivia -->
+                            <div class="card-box">
+                                <h3><i class="fa-solid fa-brain" style="color: #10b981;"></i> Chat Trivia Game</h3>
+                                <p class="card-sub">Bot broadcasts a trivia question. First chatter to type the correct answer wins!</p>
+                                <div class="form-group">
+                                    <label>Trivia Question</label>
+                                    <input type="text" id="triviaQuestion" placeholder="e.g. What year was Minecraft released?">
+                                </div>
+                                <div class="form-group">
+                                    <label>Correct Answer (case-insensitive)</label>
+                                    <input type="text" id="triviaAnswer" placeholder="e.g. 2011">
+                                </div>
+                                <button id="btnStartTrivia" class="btn btn-primary"><i class="fa-solid fa-flag-checkered"></i> Launch Trivia</button>
+                            </div>
+
+                            <!-- Magic 8-Ball Info -->
+                            <div class="card-box">
+                                <h3><i class="fa-solid fa-bowling-ball" style="color: #9146ff;"></i> Magic 8-Ball</h3>
+                                <p class="card-sub">Always active! Viewers can type <code>!8ball [question]</code> in chat anytime to ask the mystical 8-ball fortunes!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Quick Streamer Moderation Desk -->
+                <div class="tab-content" id="tab-mod">
+                    <div class="panel-inner">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Streamer Moderation Deck</h2>
+                                <p>1-Click instant stream chat moderation tools to keep chat clean and orderly.</p>
+                            </div>
+                        </div>
+
+                        <div class="mod-grid">
+                            <div class="mod-card" data-action="clear">
+                                <i class="fa-solid fa-trash-can mod-icon" style="color: #ef4444;"></i>
+                                <div class="mod-title">Clear Chat</div>
+                                <p>Nukes and wipes all recent messages in the channel.</p>
+                                <button class="btn btn-secondary btn-full"><i class="fa-solid fa-broom"></i> /clear</button>
+                            </div>
+
+                            <div class="mod-card" data-action="emoteonly">
+                                <i class="fa-solid fa-face-smile mod-icon" style="color: #f59e0b;"></i>
+                                <div class="mod-title">Emote-Only Mode</div>
+                                <p>Toggles chat so viewers can only post Twitch emotes.</p>
+                                <div class="btn-group">
+                                    <button class="btn btn-secondary btn-sub" data-sub="emoteonly_on">Enable</button>
+                                    <button class="btn btn-secondary btn-sub" data-sub="emoteonly_off">Disable</button>
+                                </div>
+                            </div>
+
+                            <div class="mod-card" data-action="slow">
+                                <i class="fa-solid fa-gauge-simple-high mod-icon" style="color: #00f0ff;"></i>
+                                <div class="mod-title">Slow Mode (30s)</div>
+                                <p>Restricts viewers from posting more than once every 30 seconds.</p>
+                                <div class="btn-group">
+                                    <button class="btn btn-secondary btn-sub" data-sub="slow_on">Enable</button>
+                                    <button class="btn btn-secondary btn-sub" data-sub="slow_off">Disable</button>
+                                </div>
+                            </div>
+
+                            <div class="mod-card" data-action="subscribers">
+                                <i class="fa-solid fa-star mod-icon" style="color: #9146ff;"></i>
+                                <div class="mod-title">Sub-Only Chat</div>
+                                <p>Restricts chat strictly to subscribers and VIPs.</p>
+                                <div class="btn-group">
+                                    <button class="btn btn-secondary btn-sub" data-sub="subscribers_on">Enable</button>
+                                    <button class="btn btn-secondary btn-sub" data-sub="subscribers_off">Disable</button>
+                                </div>
+                            </div>
+
+                            <div class="mod-card custom-timeout-card">
+                                <i class="fa-solid fa-user-slash mod-icon" style="color: #ef4444;"></i>
+                                <div class="mod-title">Quick User Timeout</div>
+                                <p>Temporarily timeout a disruptive chatter.</p>
+                                <div class="timeout-inputs">
+                                    <input type="text" id="timeoutUsername" placeholder="Username (no @)">
+                                    <select id="timeoutSeconds">
+                                        <option value="60">1 Minute</option>
+                                        <option value="300">5 Minutes</option>
+                                        <option value="600" selected>10 Minutes</option>
+                                        <option value="3600">1 Hour</option>
+                                    </select>
+                                    <button id="btnExecuteTimeout" class="btn btn-secondary"><i class="fa-solid fa-ban"></i> Timeout</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Timed Announcements -->
+                <div class="tab-content" id="tab-timers">
+                    <div class="panel-inner">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Automated Timed Chat Messages</h2>
+                                <p>Set up automatic messages that recur every X minutes (e.g. Discord, Socials, Hydrate reminders).</p>
+                            </div>
+                            <button id="btnAddTimer" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Timer</button>
+                        </div>
+                        <div class="timers-list" id="timersList"></div>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Bot Chat Commands -->
+                <div class="tab-content" id="tab-commands">
+                    <div class="panel-inner">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Auto-Reply Chat Commands</h2>
+                                <p>When viewers type commands like <code>!discord</code> or <code>!rules</code> in chat, the bot automatically responds!</p>
+                            </div>
+                        </div>
+
+                        <div class="cmd-creator-card">
+                            <h3>Create New Command</h3>
+                            <div class="cmd-form">
+                                <input type="text" id="newCmdName" placeholder="Command trigger (e.g. !socials or !donate)">
+                                <input type="text" id="newCmdResp" placeholder="Bot reply (e.g. Follow me on Twitter @username)">
+                                <button id="btnSaveCmd" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Save Command</button>
+                            </div>
+                        </div>
+
+                        <div class="commands-table-container">
+                            <table class="cmd-table">
+                                <thead>
+                                    <tr>
+                                        <th>Command</th>
+                                        <th>Bot Response Message</th>
+                                        <th style="width: 110px; text-align: center;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cmdTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 6: OBS Overlay Setup -->
+                <div class="tab-content" id="tab-overlay">
+                    <div class="panel-inner settings-max-width">
+                        <div class="section-banner">
+                            <div>
+                                <h2>OBS Studio / Streamlabs Overlay</h2>
+                                <p>Display animated banners, poll results, and stream notifications directly on your stream broadcast!</p>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3 style="margin-bottom: 12px;"><i class="fa-solid fa-display" style="color: #9146ff;"></i> Browser Source URL</h3>
+                            <div class="copy-url-row">
+                                <input type="text" id="overlayUrlInput" readonly value="http://localhost:3000/overlay.html">
+                                <button id="btnCopyOverlay" class="btn btn-primary"><i class="fa-solid fa-copy"></i> Copy</button>
+                            </div>
+                            <div class="obs-instructions">
+                                <h4>How to add to OBS Studio:</h4>
+                                <ol>
+                                    <li>Open OBS Studio or Streamlabs.</li>
+                                    <li>Under <strong>Sources</strong>, click <strong>+ (Add Source)</strong> and select <strong>Browser</strong>.</li>
+                                    <li>Name it <code>MightyStreamPulse Overlay</code>.</li>
+                                    <li>Paste the URL above into the <strong>URL</strong> field.</li>
+                                    <li>Set Width to <code>1920</code> and Height to <code>1080</code> (or your stream canvas size).</li>
+                                    <li>Check <strong>"Shutdown source when not visible"</strong> and click <strong>OK</strong>!</li>
+                                </ol>
+                            </div>
+
+                            <div style="margin-top: 24px;">
+                                <h4>Test OBS Overlay</h4>
+                                <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px;">Trigger a test notification right now on your OBS screen:</p>
+                                <button id="btnTestObsAlert" class="btn btn-secondary"><i class="fa-solid fa-bullhorn"></i> Send Test Banner Alert</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 7: Credentials & Config -->
+                <div class="tab-content" id="tab-settings">
+                    <div class="panel-inner settings-max-width">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Twitch Bot Credentials</h2>
+                                <p>Configure your bot username and official Twitch IRC authentication token.</p>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <div class="form-group">
+                                <label for="botUsername">Twitch Bot Account Name</label>
+                                <input type="text" id="botUsername" placeholder="e.g. my_stream_bot or your own twitch username">
+                                <small>The username of the account that will send chat messages.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="oauthToken">
+                                    Twitch OAuth Token
+                                    <a href="https://twitchapps.com/tmi/" target="_blank" class="help-link"><i class="fa-solid fa-arrow-up-right-from-square"></i> Generate Free Token</a>
+                                </label>
+                                <input type="password" id="oauthToken" placeholder="oauth:••••••••••••••••••••••••••••••">
+                                <small>Twitch requires an IRC password token to authorize sending messages.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="targetChannel">Target Channel Name</label>
+                                <input type="text" id="targetChannel" placeholder="e.g. yourchannelname">
+                                <small>Your live Twitch stream channel where messages will be sent.</small>
+                            </div>
+
+                            <div class="settings-actions">
+                                <button id="btnConnect" class="btn btn-primary"><i class="fa-solid fa-plug"></i> Connect Bot</button>
+                                <button id="btnDisconnect" class="btn btn-secondary"><i class="fa-solid fa-power-off"></i> Disconnect</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Twitch Chat Slide-out Panel -->
+                <aside class="chat-drawer" id="chatDrawer">
+                    <div class="chat-drawer-header">
+                        <div class="chat-title">
+                            <i class="fa-solid fa-satellite-dish pulse-icon"></i>
+                            <h3>Live Chat</h3>
+                        </div>
+                        <div class="chat-header-actions">
+                            <button id="btnClearChat" class="icon-btn" title="Clear Chat Log"><i class="fa-solid fa-trash-can"></i></button>
+                            <button id="btnCloseChat" class="icon-btn" title="Close Panel"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="chat-stream-feed" id="chatFeed">
+                        <div class="empty-state">
+                            <i class="fa-regular fa-comments"></i>
+                            <p>No chat messages yet.<br>Connect your bot to see incoming viewer messages!</p>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for adding custom buttons -->
+    <div class="modal-overlay" id="addBtnModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-plus-circle"></i> Create Stream Deck Button</h3>
+                <button class="modal-close" id="btnCloseModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Button Title</label>
+                    <input type="text" id="modalBtnTitle" placeholder="e.g. Squad Discord Link">
+                </div>
+                <div class="form-group">
+                    <label>Category Tag</label>
+                    <select id="modalBtnCategory">
+                        <option value="Hype">🔥 Hype</option>
+                        <option value="Links">🌐 Links</option>
+                        <option value="Greet">👋 Greet</option>
+                        <option value="Gaming">🎮 Gaming</option>
+                        <option value="Mod">🛡️ Moderation</option>
+                        <option value="Support">⭐ Support</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Chat Message to Fire</label>
+                    <textarea id="modalBtnMsg" rows="3" placeholder="Type the message that will be broadcast into Twitch chat..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelModal">Cancel</button>
+                <button class="btn btn-primary" id="btnConfirmAdd">Save & Add to Deck</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding/editing timers -->
+    <div class="modal-overlay" id="timerModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="timerModalTitle"><i class="fa-solid fa-clock"></i> Edit Timed Announcement</h3>
+                <button class="modal-close" id="btnCloseTimerModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalTimerIndex" value="-1">
+                <div class="form-group">
+                    <label>Reminder Title / Name</label>
+                    <input type="text" id="modalTimerName" placeholder="e.g. Discord Reminder">
+                </div>
+                <div class="form-group">
+                    <label>Interval (in Minutes)</label>
+                    <input type="number" id="modalTimerInterval" min="1" max="1440" placeholder="e.g. 15">
+                </div>
+                <div class="form-group">
+                    <label>Chat Message to Broadcast</label>
+                    <textarea id="modalTimerMsg" rows="3" placeholder="Type the automated message to post in Twitch chat..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelTimerModal">Cancel</button>
+                <button class="btn btn-primary" id="btnSaveTimerModal"><i class="fa-solid fa-check"></i> Save Timer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for editing bot chat commands -->
+    <div class="modal-overlay" id="cmdModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-terminal"></i> Edit Chat Command</h3>
+                <button class="modal-close" id="btnCloseCmdModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalOrigCmd" value="">
+                <div class="form-group">
+                    <label>Command Trigger</label>
+                    <input type="text" id="modalCmdName" placeholder="e.g. !discord">
+                </div>
+                <div class="form-group">
+                    <label>Bot Response Message</label>
+                    <textarea id="modalCmdResp" rows="3" placeholder="Type what the bot should answer..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelCmdModal">Cancel</button>
+                <button class="btn btn-primary" id="btnSaveCmdModal"><i class="fa-solid fa-check"></i> Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

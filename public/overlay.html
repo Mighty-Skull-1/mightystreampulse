@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MightyStreamPulse - OBS Studio Overlay</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: transparent;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Alert Box Popup */
+        .alert-container {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-150px);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(18, 18, 24, 0.92);
+            border: 2px solid #9146ff;
+            box-shadow: 0 10px 40px rgba(145, 70, 255, 0.5);
+            backdrop-filter: blur(8px);
+            padding: 16px 28px;
+            border-radius: 16px;
+            z-index: 1000;
+        }
+
+        .alert-container.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .alert-icon {
+            font-size: 2.5rem;
+            color: #00f0ff;
+            animation: bounce 1s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-6px); }
+        }
+
+        .alert-content h2 {
+            font-size: 1.3rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, #ff007f, #9146ff, #00f0ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .alert-content p {
+            font-size: 1.05rem;
+            color: #efeff1;
+            margin-top: 2px;
+            font-weight: 600;
+        }
+
+        /* Live Chat Highlight Overlay */
+        .chat-overlay-box {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .chat-card {
+            background: rgba(15, 15, 20, 0.85);
+            border-left: 4px solid #9146ff;
+            border-radius: 8px;
+            padding: 10px 14px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease forwards;
+            font-size: 0.95rem;
+            color: #fff;
+            backdrop-filter: blur(6px);
+        }
+
+        .chat-card .sender {
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Poll Overlay Widget */
+        .poll-widget {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            background: rgba(18, 18, 24, 0.9);
+            border: 1px solid #333344;
+            border-radius: 12px;
+            padding: 16px 20px;
+            width: 320px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+            display: none;
+            backdrop-filter: blur(8px);
+        }
+
+        .poll-widget.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .poll-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .poll-opt {
+            margin-bottom: 10px;
+        }
+
+        .poll-opt-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            color: #ccc;
+            margin-bottom: 4px;
+        }
+
+        .poll-bar-bg {
+            height: 10px;
+            background: #272733;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .poll-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #9146ff, #00f0ff);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Alert Popups -->
+    <div class="alert-container" id="alertBox">
+        <i class="fa-solid fa-bullhorn alert-icon" id="alertIcon"></i>
+        <div class="alert-content">
+            <h2 id="alertTitle">STREAM ALERT</h2>
+            <p id="alertMsg">Welcome to the stream!</p>
+        </div>
+    </div>
+
+    <!-- Live Poll Widget -->
+    <div class="poll-widget" id="pollWidget">
+        <div class="poll-title"><i class="fa-solid fa-chart-simple" style="color: #00f0ff;"></i> <span id="pollQuestion">Chat Poll</span></div>
+        <div id="pollOptionsList"></div>
+    </div>
+
+    <!-- On-Screen Chat Stream -->
+    <div class="chat-overlay-box" id="chatOverlay"></div>
+
+    <script>
+        const alertBox = document.getElementById('alertBox');
+        const alertTitle = document.getElementById('alertTitle');
+        const alertMsg = document.getElementById('alertMsg');
+        const alertIcon = document.getElementById('alertIcon');
+        const chatOverlay = document.getElementById('chatOverlay');
+        const pollWidget = document.getElementById('pollWidget');
+        const pollQuestion = document.getElementById('pollQuestion');
+        const pollOptionsList = document.getElementById('pollOptionsList');
+
+        let alertTimeout = null;
+
+        function showAlert(title, message, type) {
+            alertTitle.textContent = title || 'STREAM ALERT';
+            alertMsg.textContent = message || '';
+
+            if (type === 'giveaway' || type === 'winner') {
+                alertIcon.className = 'fa-solid fa-gift alert-icon';
+            } else if (type === 'poll') {
+                alertIcon.className = 'fa-solid fa-square-poll-vertical alert-icon';
+            } else if (type === 'trivia') {
+                alertIcon.className = 'fa-solid fa-brain alert-icon';
+            } else if (type === 'reward') {
+                alertIcon.className = 'fa-solid fa-coins alert-icon';
+            } else {
+                alertIcon.className = 'fa-solid fa-bolt-lightning alert-icon';
+            }
+
+            alertBox.classList.add('show');
+            if (alertTimeout) clearTimeout(alertTimeout);
+            alertTimeout = setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 6000);
+        }
+
+        function updatePollUI(question, options) {
+            pollQuestion.textContent = question;
+            pollOptionsList.innerHTML = '';
+            const totalVotes = options.reduce((sum, o) => sum + o.votes, 0) || 1;
+
+            options.forEach((opt, idx) => {
+                const pct = Math.round((opt.votes / totalVotes) * 100);
+                const optDiv = document.createElement('div');
+                optDiv.className = 'poll-opt';
+                optDiv.innerHTML = `
+                    <div class="poll-opt-label">
+                        <span>[${idx + 1}] ${opt.text}</span>
+                        <span>${opt.votes} (${pct}%)</span>
+                    </div>
+                    <div class="poll-bar-bg">
+                        <div class="poll-bar-fill" style="width: ${pct}%"></div>
+                    </div>
+                `;
+                pollOptionsList.appendChild(optDiv);
+            });
+            pollWidget.classList.add('active');
+        }
+
+        // WebSocket Connection to Local Server
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'obs_alert') {
+                showAlert(data.title, data.message, data.type);
+            } else if (data.type === 'poll_update') {
+                updatePollUI(data.question, data.options);
+            } else if (data.type === 'poll_end') {
+                pollWidget.classList.remove('active');
+            } else if (data.type === 'chat_message') {
+                const card = document.createElement('div');
+                const isReward = data.isReward ? ' border-left: 4px solid #ffd700; background: rgba(30, 25, 10, 0.9);' : '';
+                const tag = data.isReward ? '<span style="color: #ffd700; font-size: 0.75rem; font-weight: 700; margin-right: 6px;"><i class="fa-solid fa-coins"></i> POINTS</span>' : '';
+                card.className = 'chat-card';
+                if (isReward) card.style.cssText = isReward;
+                card.innerHTML = `${tag}<span class="sender" style="color: ${data.color}">${data.displayName}:</span> <span>${data.message}</span>`;
+                chatOverlay.appendChild(card);
+                if (chatOverlay.children.length > 5) {
+                    chatOverlay.removeChild(chatOverlay.children[0]);
+                }
+                setTimeout(() => {
+                    if (card.parentNode) card.remove();
+                }, 10000);
+            }
+        };
+    </script>
+</body>
+</html>
