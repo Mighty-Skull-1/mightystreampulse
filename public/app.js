@@ -875,25 +875,33 @@ const btnCreateProfile = document.getElementById('btnCreateProfile');
 const activeAccountName = document.getElementById('activeAccountName');
 
 function updateProfilesDropdown() {
-    profileSelectDropdown.innerHTML = '';
-    allProfiles.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = p.name + (p.channel ? ` (#${p.channel})` : '');
-        if (p.id === currentProfileId) opt.selected = true;
-        profileSelectDropdown.appendChild(opt);
-    });
+    if (profileSelectDropdown) {
+        profileSelectDropdown.innerHTML = '';
+        allProfiles.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name + (p.channel ? ` (#${p.channel})` : '');
+            if (p.id === currentProfileId) opt.selected = true;
+            profileSelectDropdown.appendChild(opt);
+        });
+    }
 
     const active = allProfiles.find(p => p.id === currentProfileId);
-    if (active) activeAccountName.textContent = active.name;
+    if (active && activeAccountName) {
+        activeAccountName.textContent = active.name;
+    } else if (activeAccountName) {
+        activeAccountName.textContent = 'Streamer';
+    }
 }
 
-btnSwitchAccount.addEventListener('click', () => {
-    updateProfilesDropdown();
-    accountModal.classList.add('open');
-});
-btnCloseAccountModal.addEventListener('click', () => accountModal.classList.remove('open'));
-btnCancelAccountModal.addEventListener('click', () => accountModal.classList.remove('open'));
+if (btnSwitchAccount && accountModal) {
+    btnSwitchAccount.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.href = 'login.html';
+    });
+}
+if (btnCloseAccountModal && accountModal) btnCloseAccountModal.addEventListener('click', () => accountModal.classList.remove('open'));
+if (btnCancelAccountModal && accountModal) btnCancelAccountModal.addEventListener('click', () => accountModal.classList.remove('open'));
 
 btnLoadProfile.addEventListener('click', async () => {
     const selectedId = profileSelectDropdown.value;
