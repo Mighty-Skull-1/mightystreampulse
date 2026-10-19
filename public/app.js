@@ -935,8 +935,36 @@ btnCreateProfile.addEventListener('click', () => {
     initApp();
 });
 
+// Set Default Channel Preset Click Handler
+const btnSetMightyTTV = document.getElementById('btnSetMightyTTV');
+if (btnSetMightyTTV) {
+    btnSetMightyTTV.addEventListener('click', (e) => {
+        e.preventDefault();
+        targetChannelInput.value = 'mightyttv0';
+        if (!botUsernameInput.value) botUsernameInput.value = 'mightyttv0';
+        localStorage.setItem(getProfileKey('channel'), 'mightyttv0');
+        alert('Channel set to mightyttv0! Make sure your OAuth token is entered and click Connect.');
+    });
+}
+
+// Check URL Hash for Twitch OAuth Redirects (e.g. #access_token=...)
+function checkOAuthRedirect() {
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token=')) {
+        const params = new URLSearchParams(hash.substring(1));
+        const token = params.get('access_token');
+        if (token) {
+            oauthTokenInput.value = 'oauth:' + token;
+            localStorage.setItem(getProfileKey('oauth'), 'oauth:' + token);
+            window.history.replaceState(null, null, window.location.pathname);
+            alert('Twitch Token successfully imported! Enter your username and click Connect.');
+        }
+    }
+}
+
 // Load Saved LocalStorage Credentials
 function initApp() {
+    checkOAuthRedirect();
     loadProfileData();
     renderDeck();
     renderTimers(timedAnnouncements);
@@ -945,7 +973,7 @@ function initApp() {
 
     const savedUser = localStorage.getItem(getProfileKey('user')) || '';
     const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
-    const savedChan = localStorage.getItem(getProfileKey('channel')) || '';
+    const savedChan = localStorage.getItem(getProfileKey('channel')) || 'mightyttv0';
 
     botUsernameInput.value = savedUser;
     targetChannelInput.value = savedChan;
