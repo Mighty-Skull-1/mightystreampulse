@@ -7,58 +7,144 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            background-color: #0e0e10;
-            background-image: radial-gradient(circle at 50% 30%, rgba(145, 70, 255, 0.15), transparent 70%);
+            background-color: #0b0b0e;
+            background-image: 
+                radial-gradient(circle at 50% 20%, rgba(145, 70, 255, 0.18), transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.08), transparent 50%);
             color: #efeff1;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 24px;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
         }
 
-        .auth-container {
+        .auth-wrapper {
+            position: relative;
             width: 100%;
             max-width: 440px;
-            background: #f4efe6;
-            color: #1f1f23;
-            border-radius: 28px;
-            padding: 36px 32px;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(145, 70, 255, 0.2);
-            position: relative;
-            text-align: center;
-            animation: fadeIn 0.3s ease-out;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.96); }
-            to { opacity: 1; transform: scale(1); }
+        /* Ambient Glow behind card */
+        .ambient-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 320px;
+            height: 320px;
+            background: linear-gradient(135deg, #9146ff, #ff0055);
+            filter: blur(80px);
+            opacity: 0.22;
+            z-index: 0;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        /* Modern Glass Card */
+        .auth-container {
+            position: relative;
+            z-index: 1;
+            background: rgba(18, 18, 24, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 28px;
+            padding: 34px 30px;
+            box-shadow: 
+                0 30px 70px rgba(0, 0, 0, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            text-align: center;
+            animation: cardEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes cardEntrance {
+            from { opacity: 0; transform: translateY(14px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Card Header & Close Button */
+        .card-header-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+        }
+
+        .brand-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(145, 70, 255, 0.15);
+            border: 1px solid rgba(145, 70, 255, 0.35);
+            padding: 5px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #d1b3ff;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .brand-pill i {
+            color: #00f0ff;
+        }
+
+        .btn-card-close {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #a0a0b0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .btn-card-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transform: scale(1.08);
         }
 
         .connect-title {
-            font-size: 1.75rem;
+            font-size: 1.85rem;
             font-weight: 800;
-            letter-spacing: -0.5px;
-            margin-bottom: 28px;
-            color: #0f0f14;
+            letter-spacing: -0.6px;
+            margin-bottom: 26px;
+            color: #ffffff;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.4);
         }
 
+        /* Buttons Stack */
         .connect-buttons-stack {
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            margin-bottom: 16px;
+            gap: 13px;
+            margin-bottom: 14px;
         }
 
-        /* Large Pill Buttons matching screenshot */
+        /* Pill Buttons */
         .btn-pill-connect {
             width: 100%;
             border: none;
             border-radius: 9999px;
-            padding: 16px 24px;
-            font-size: 1.05rem;
+            padding: 15px 24px;
+            font-size: 1.02rem;
             font-weight: 800;
             letter-spacing: 0.8px;
             text-transform: uppercase;
@@ -67,136 +153,162 @@
             align-items: center;
             justify-content: center;
             gap: 12px;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
             text-decoration: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-pill-connect::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.15), transparent);
+            pointer-events: none;
         }
 
         .btn-pill-connect:hover {
             transform: translateY(-2px);
-            filter: brightness(1.08);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+            filter: brightness(1.1);
         }
 
         .btn-pill-connect:active {
-            transform: translateY(0);
+            transform: translateY(0) scale(0.99);
         }
 
         /* Twitch Button */
         .btn-pill-twitch {
-            background: #8b3dff;
+            background: linear-gradient(135deg, #9146ff, #772ce8);
             color: #ffffff;
-            box-shadow: 0 6px 20px rgba(139, 61, 255, 0.45);
+            box-shadow: 0 8px 24px rgba(145, 70, 255, 0.45);
         }
 
         .btn-pill-twitch:hover {
-            background: #772ce8;
-            box-shadow: 0 8px 26px rgba(139, 61, 255, 0.65);
+            box-shadow: 0 12px 30px rgba(145, 70, 255, 0.65);
         }
 
         /* YouTube Button */
         .btn-pill-youtube {
-            background: #ff0000;
+            background: linear-gradient(135deg, #ff1a1a, #cc0000);
             color: #ffffff;
-            box-shadow: 0 6px 20px rgba(255, 0, 0, 0.35);
+            box-shadow: 0 8px 24px rgba(255, 26, 26, 0.38);
         }
 
-        /* Secondary Row for X and Kick */
+        .btn-pill-youtube:hover {
+            box-shadow: 0 12px 30px rgba(255, 26, 26, 0.55);
+        }
+
+        /* Secondary Row: X and Kick */
         .connect-row-secondary {
             display: flex;
-            gap: 14px;
+            gap: 13px;
             justify-content: center;
             margin-top: 2px;
         }
 
         .btn-circle-connect {
             flex: 1;
-            height: 62px;
+            height: 56px;
             border-radius: 9999px;
-            border: 2px solid #0f0f14;
-            background: transparent;
-            color: #0f0f14;
-            font-size: 1.4rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-size: 1.35rem;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .btn-circle-connect:hover {
             transform: translateY(-2px);
-            background: rgba(0, 0, 0, 0.05);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
         }
 
         .btn-circle-kick {
             background: #53fc18;
             border: none;
-            color: #000000;
+            color: #050505;
             font-weight: 900;
-            font-size: 1.6rem;
+            font-size: 1.45rem;
             font-family: monospace;
-            box-shadow: 0 6px 20px rgba(83, 252, 24, 0.4);
+            box-shadow: 0 6px 20px rgba(83, 252, 24, 0.35);
         }
 
         .btn-circle-kick:hover {
             background: #47e212;
-            box-shadow: 0 8px 25px rgba(83, 252, 24, 0.6);
+            color: #000;
+            box-shadow: 0 8px 26px rgba(83, 252, 24, 0.55);
         }
 
+        /* Divider Line */
         .divider-line {
             display: flex;
             align-items: center;
             text-align: center;
-            margin: 24px 0 16px 0;
-            color: #888;
-            font-size: 0.78rem;
+            margin: 24px 0 18px 0;
+            color: #636374;
+            font-size: 0.72rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 1px;
         }
 
         .divider-line::before, .divider-line::after {
             content: '';
             flex: 1;
-            border-bottom: 1px solid #dcd7ce;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .divider-line:not(:empty)::before {
-            margin-right: .8em;
+            margin-right: 1em;
         }
 
         .divider-line:not(:empty)::after {
-            margin-left: .8em;
+            margin-left: 1em;
         }
 
-        .auth-footer-links {
+        /* Footer Action Pills */
+        .auth-footer-chips {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.82rem;
-            margin-top: 14px;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
-        .auth-link {
-            color: #666;
-            text-decoration: none;
+        .auth-chip {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #adadb8;
+            font-size: 0.78rem;
             font-weight: 600;
+            padding: 8px 14px;
+            border-radius: 9999px;
+            text-decoration: none;
             cursor: pointer;
-            transition: color 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.18s ease;
         }
 
-        .auth-link:hover {
-            color: #8b3dff;
-            text-decoration: underline;
+        .auth-chip:hover {
+            background: rgba(145, 70, 255, 0.15);
+            border-color: rgba(145, 70, 255, 0.4);
+            color: #fff;
+            transform: translateY(-1px);
         }
 
-        /* OAuth Redirect Loading Banner */
+        /* Loading Overlay */
         #authLoadingOverlay {
             display: none;
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(244, 239, 230, 0.95);
+            background: rgba(14, 14, 18, 0.96);
+            backdrop-filter: blur(12px);
             border-radius: 28px;
             flex-direction: column;
             align-items: center;
@@ -211,136 +323,121 @@
 
         .spinner-large {
             font-size: 2.8rem;
-            color: #8b3dff;
+            color: #9146ff;
+            filter: drop-shadow(0 0 12px rgba(145, 70, 255, 0.6));
         }
 
-        /* Client ID Modal */
-        .client-id-modal {
+        /* Modals (Consistent Dark Glass) */
+        .app-modal {
             display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
             z-index: 1000;
             align-items: center;
             justify-content: center;
             padding: 20px;
         }
 
-        .client-id-modal.open {
+        .app-modal.open {
             display: flex;
         }
 
-        .client-id-box {
-            background: #18181b;
+        .app-modal-card {
+            background: #15151c;
             color: #efeff1;
-            border: 1px solid #2f2f35;
-            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
             width: 100%;
             max-width: 440px;
-            padding: 26px;
+            padding: 28px;
             text-align: left;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9);
+            animation: cardEntrance 0.25s ease-out;
         }
 
-        .client-id-box h3 {
-            font-size: 1.15rem;
+        .app-modal-card h3 {
+            font-size: 1.2rem;
             margin-bottom: 8px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             color: #fff;
         }
 
-        .client-id-box p {
+        .app-modal-card p {
             font-size: 0.85rem;
             color: #adadb8;
             line-height: 1.45;
             margin-bottom: 16px;
         }
 
-        .client-id-box input {
+        .app-modal-card label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #adadb8;
+            display: block;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .app-modal-card input {
             width: 100%;
-            background: #0e0e10;
-            border: 1px solid #3a3a44;
-            border-radius: 8px;
+            background: #0d0d12;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
             padding: 12px 14px;
             color: #fff;
-            font-family: monospace;
+            font-family: inherit;
             font-size: 0.9rem;
             margin-bottom: 16px;
             outline: none;
+            transition: border-color 0.2s;
         }
 
-        .client-id-box input:focus {
-            border-color: #8b3dff;
+        .app-modal-card input:focus {
+            border-color: #9146ff;
+            box-shadow: 0 0 12px rgba(145, 70, 255, 0.3);
         }
 
-        .client-id-actions {
+        .app-modal-actions {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+            margin-top: 10px;
         }
 
-        /* Saved profiles modal */
-        .profiles-modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(8px);
-            z-index: 999;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .profiles-modal.open {
-            display: flex;
-        }
-
-        .profiles-card {
-            background: #18181b;
-            color: #efeff1;
-            border: 1px solid #2f2f35;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 440px;
-            padding: 26px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
+        /* Profile Rows inside modal */
         .profile-row {
-            background: #0e0e10;
-            border: 1px solid #2f2f35;
-            border-radius: 10px;
+            background: #0d0d12;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
             padding: 12px 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 8px;
-            cursor: pointer;
+            margin-bottom: 10px;
             transition: all 0.2s;
         }
 
         .profile-row:hover {
-            border-color: #8b3dff;
-            background: #1c1c24;
+            border-color: #9146ff;
+            background: #181824;
         }
 
         .profile-avatar {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
-            background: #8b3dff;
+            background: #9146ff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
             color: #fff;
             overflow: hidden;
-            margin-right: 10px;
+            margin-right: 12px;
         }
 
         .profile-avatar img {
@@ -351,97 +448,114 @@
     </style>
 </head>
 <body>
-    <div class="auth-container">
-        <!-- Connecting Spinner Overlay -->
-        <div id="authLoadingOverlay">
-            <i class="fa-solid fa-circle-notch fa-spin spinner-large"></i>
-            <h3 id="authLoadingTitle" style="font-weight: 800; font-size: 1.2rem; color: #0f0f14;">Connecting to Twitch...</h3>
-            <p id="authLoadingSub" style="font-size: 0.85rem; color: #555;">Authorizing streamer account</p>
-        </div>
+    <div class="auth-wrapper">
+        <div class="ambient-glow"></div>
 
-        <h1 class="connect-title">Connect with</h1>
+        <div class="auth-container">
+            <!-- Loading Overlay -->
+            <div id="authLoadingOverlay">
+                <i class="fa-solid fa-circle-notch fa-spin spinner-large"></i>
+                <h3 id="authLoadingTitle" style="font-weight: 800; font-size: 1.25rem; color: #fff;">Connecting to Twitch...</h3>
+                <p id="authLoadingSub" style="font-size: 0.85rem; color: #adadb8;">Authorizing streamer account</p>
+            </div>
 
-        <div class="connect-buttons-stack">
-            <!-- 1. Twitch Button (Official 1-Click OAuth) -->
-            <button class="btn-pill-connect btn-pill-twitch" id="btnConnectTwitch">
-                <i class="fa-brands fa-twitch" style="font-size: 1.25rem;"></i> TWITCH
-            </button>
+            <!-- Top Header Bar -->
+            <div class="card-header-bar">
+                <span class="brand-pill"><i class="fa-solid fa-bolt"></i> MightyStreamPulse</span>
+                <a href="index.html" class="btn-card-close" title="Open Dashboard"><i class="fa-solid fa-xmark"></i></a>
+            </div>
 
-            <!-- 2. YouTube Button -->
-            <button class="btn-pill-connect btn-pill-youtube" id="btnConnectYouTube" onclick="alert('YouTube Live Integration is coming soon!')">
-                <i class="fa-brands fa-youtube" style="font-size: 1.25rem;"></i> YOUTUBE
-            </button>
-        </div>
+            <!-- Title -->
+            <h1 class="connect-title">Connect with</h1>
 
-        <!-- Secondary Row: X and Kick -->
-        <div class="connect-row-secondary">
-            <button class="btn-circle-connect" id="btnConnectX" title="Connect with X (Twitter)" onclick="alert('X / Twitter broadcasts coming in next update!')">
-                <i class="fa-brands fa-x-twitter"></i>
-            </button>
-            <button class="btn-circle-connect btn-circle-kick" id="btnConnectKick" title="Connect with Kick" onclick="alert('Kick Bot integration coming in next update!')">
-                K
-            </button>
-        </div>
+            <!-- Platform Buttons -->
+            <div class="connect-buttons-stack">
+                <!-- 1. Twitch (1-Click OAuth) -->
+                <button class="btn-pill-connect btn-pill-twitch" id="btnConnectTwitch">
+                    <i class="fa-brands fa-twitch" style="font-size: 1.3rem;"></i> TWITCH
+                </button>
 
-        <div class="divider-line">MightyStreamPulse</div>
+                <!-- 2. YouTube -->
+                <button class="btn-pill-connect btn-pill-youtube" id="btnConnectYouTube" onclick="alert('YouTube Live broadcast integration coming soon!')">
+                    <i class="fa-brands fa-youtube" style="font-size: 1.3rem;"></i> YOUTUBE
+                </button>
+            </div>
 
-        <div class="auth-footer-links">
-            <a class="auth-link" id="btnOpenManualLogin"><i class="fa-solid fa-key"></i> Quick Token Login</a>
-            <a class="auth-link" id="btnOpenProfiles"><i class="fa-solid fa-users"></i> Saved Profiles</a>
-            <a class="auth-link" id="btnOpenClientIdModal"><i class="fa-solid fa-gear"></i> Settings</a>
+            <!-- Secondary: X & Kick -->
+            <div class="connect-row-secondary">
+                <button class="btn-circle-connect" id="btnConnectX" title="Connect with X (Twitter)" onclick="alert('X / Twitter broadcasts coming in next update!')">
+                    <i class="fa-brands fa-x-twitter"></i>
+                </button>
+                <button class="btn-circle-connect btn-circle-kick" id="btnConnectKick" title="Connect with Kick" onclick="alert('Kick Bot integration coming in next update!')">
+                    K
+                </button>
+            </div>
+
+            <div class="divider-line">MightyStreamPulse</div>
+
+            <!-- Footer Action Chips -->
+            <div class="auth-footer-chips">
+                <button class="auth-chip" id="btnOpenManualLogin">
+                    <i class="fa-solid fa-key" style="color: #00f0ff;"></i> Quick Token
+                </button>
+                <button class="auth-chip" id="btnOpenProfiles">
+                    <i class="fa-solid fa-users" style="color: #9146ff;"></i> Saved Profiles
+                </button>
+                <button class="auth-chip" id="btnOpenClientIdModal">
+                    <i class="fa-solid fa-gear" style="color: #ffd700;"></i> Settings
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Quick Token Login Modal -->
-    <div class="client-id-modal" id="manualLoginModal">
-        <div class="client-id-box">
+    <div class="app-modal" id="manualLoginModal">
+        <div class="app-modal-card">
             <h3><i class="fa-solid fa-bolt" style="color: #00f0ff;"></i> Quick Streamer Connect</h3>
-            <p>Connect instantly with your Twitch channel and chat token:</p>
+            <p>Connect immediately with your Twitch channel and chat token:</p>
             
-            <label style="font-size: 0.8rem; font-weight: 700; color: #adadb8; display: block; margin-bottom: 4px;">TWITCH CHANNEL</label>
+            <label>TWITCH CHANNEL</label>
             <input type="text" id="manualChannelInput" placeholder="e.g. mightyttv0">
 
-            <label style="font-size: 0.8rem; font-weight: 700; color: #adadb8; display: block; margin-bottom: 4px;">
+            <label>
                 OAUTH TOKEN 
-                <a href="https://twitchapps.com/tmi/" target="_blank" style="color: #8b3dff; float: right; font-weight: normal; text-decoration: underline;">Get Token</a>
+                <a href="https://twitchapps.com/tmi/" target="_blank" style="color: #9146ff; float: right; font-weight: normal; text-decoration: underline;">Get Token</a>
             </label>
             <input type="password" id="manualOauthInput" placeholder="oauth:••••••••••••••••">
 
-            <div class="client-id-actions">
-                <button class="btn btn-secondary" id="btnCloseManualLogin" style="padding: 8px 16px;">Cancel</button>
-                <button class="btn btn-primary" id="btnSubmitManualLogin" style="padding: 8px 18px; background: #00e676; color: #000; font-weight: 800;">Connect Now</button>
+            <div class="app-modal-actions">
+                <button class="btn btn-secondary" id="btnCloseManualLogin" style="padding: 9px 18px;">Cancel</button>
+                <button class="btn btn-primary" id="btnSubmitManualLogin" style="padding: 9px 20px; background: #00e676; color: #000; font-weight: 800;">Connect Now</button>
             </div>
         </div>
     </div>
 
-    <!-- Twitch Client ID Modal -->
-    <div class="client-id-modal" id="clientIdModal">
-        <div class="client-id-box">
-            <h3><i class="fa-brands fa-twitch" style="color: #8b3dff;"></i> Twitch Client ID Setup</h3>
+    <!-- Twitch Client ID / Settings Modal -->
+    <div class="app-modal" id="clientIdModal">
+        <div class="app-modal-card">
+            <h3><i class="fa-brands fa-twitch" style="color: #9146ff;"></i> Twitch API Settings</h3>
             <p>
-                To enable 1-click Twitch OAuth like StreamElements, create a free application in the 
-                <a href="https://dev.twitch.tv/console/apps/create" target="_blank" style="color: #8b3dff; text-decoration: underline;">Twitch Developer Console</a>
-                and paste your <strong>Client ID</strong> below.
+                Configure your custom Twitch Developer Client ID for 1-click OAuth redirects:
             </p>
-            <div style="font-size: 0.8rem; background: #222; padding: 10px; border-radius: 6px; margin-bottom: 12px; color: #bbb;">
-                <strong>OAuth Redirect URL:</strong><br>
-                <code id="redirectUrlPreview" style="color: #00f0ff;"></code>
+            <div style="font-size: 0.8rem; background: #0d0d12; padding: 12px; border-radius: 8px; margin-bottom: 14px; color: #adadb8; border: 1px solid rgba(255,255,255,0.08);">
+                <strong style="color: #fff;">Expected Redirect URL:</strong><br>
+                <code id="redirectUrlPreview" style="color: #00f0ff; word-break: break-all;"></code>
             </div>
-            <label style="font-size: 0.8rem; font-weight: 700; color: #adadb8; display: block; margin-bottom: 6px;">TWITCH CLIENT ID</label>
-            <input type="text" id="inputTwitchClientId" placeholder="e.g. gp762nuuoqcoxypju8c569th9wz7q5">
-            <div class="client-id-actions">
-                <button class="btn btn-secondary" id="btnCloseClientIdModal" style="padding: 8px 16px;">Cancel</button>
-                <button class="btn btn-primary" id="btnSaveClientId" style="padding: 8px 18px; background: #8b3dff;">Save & Connect</button>
+            <label>TWITCH CLIENT ID</label>
+            <input type="text" id="inputTwitchClientId" placeholder="e.g. 0r9wta4lw0nu45hd8avh0tba5adf3z">
+            <div class="app-modal-actions">
+                <button class="btn btn-secondary" id="btnCloseClientIdModal" style="padding: 9px 18px;">Cancel</button>
+                <button class="btn btn-primary" id="btnSaveClientId" style="padding: 9px 20px; background: #9146ff;">Save Client ID</button>
             </div>
         </div>
     </div>
 
     <!-- Saved Profiles Modal -->
-    <div class="profiles-modal" id="profilesModal">
-        <div class="profiles-card">
+    <div class="app-modal" id="profilesModal">
+        <div class="app-modal-card" style="max-height: 80vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-                <h3 style="font-size: 1.15rem; font-weight: 700;"><i class="fa-solid fa-users"></i> Saved Streamer Profiles</h3>
-                <button class="icon-btn" id="btnCloseProfilesModal"><i class="fa-solid fa-xmark"></i></button>
+                <h3 style="font-size: 1.15rem; font-weight: 700;"><i class="fa-solid fa-users" style="color: #9146ff;"></i> Saved Profiles</h3>
+                <button class="btn-card-close" id="btnCloseProfilesModal"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div id="savedProfilesContainer"></div>
         </div>
@@ -504,6 +618,46 @@
             localStorage.setItem('msp_twitch_client_id', id);
             clientIdModal.classList.remove('open');
             startTwitchOAuth(id);
+        });
+
+        // Quick Token Login handlers
+        const manualLoginModal = document.getElementById('manualLoginModal');
+        const manualChannelInput = document.getElementById('manualChannelInput');
+        const manualOauthInput = document.getElementById('manualOauthInput');
+
+        document.getElementById('btnOpenManualLogin').addEventListener('click', () => {
+            manualLoginModal.classList.add('open');
+        });
+        document.getElementById('btnCloseManualLogin').addEventListener('click', () => {
+            manualLoginModal.classList.remove('open');
+        });
+
+        document.getElementById('btnSubmitManualLogin').addEventListener('click', () => {
+            let chan = manualChannelInput.value.trim().toLowerCase().replace('#', '').replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '');
+            let token = manualOauthInput.value.trim();
+
+            if (!chan) return alert('Please enter your Twitch channel name.');
+            if (!token) return alert('Please enter your Twitch OAuth token.');
+            if (!token.startsWith('oauth:')) token = 'oauth:' + token;
+
+            const profileId = 'prof_' + Date.now();
+            const rawList = localStorage.getItem('msp_profiles_list');
+            let profiles = rawList ? JSON.parse(rawList) : [];
+
+            profiles.push({
+                id: profileId,
+                name: chan,
+                channel: chan
+            });
+
+            localStorage.setItem('msp_profiles_list', JSON.stringify(profiles));
+            localStorage.setItem('msp_active_profile', profileId);
+
+            localStorage.setItem(`msp_${profileId}_channel`, chan);
+            localStorage.setItem(`msp_${profileId}_user`, chan);
+            localStorage.setItem(`msp_${profileId}_oauth`, token);
+
+            window.location.href = 'index.html';
         });
 
         // Check for Twitch OAuth redirect with #access_token=... or error
@@ -643,11 +797,11 @@
                         <div class="profile-avatar">${avatarImg}</div>
                         <div>
                             <div style="font-weight: 700; color: #fff;">${escapeHtml(p.name)}</div>
-                            <div style="font-size: 0.8rem; color: #8b3dff;">#${escapeHtml(p.channel || p.name)}</div>
+                            <div style="font-size: 0.8rem; color: #9146ff;">#${escapeHtml(p.channel || p.name)}</div>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-primary btn-sm btn-open-p" style="padding: 6px 12px; font-size: 0.8rem; background: #8b3dff;">Open</button>
+                        <button class="btn btn-primary btn-sm btn-open-p" style="padding: 6px 12px; font-size: 0.8rem; background: #9146ff;">Open</button>
                         <button class="btn btn-secondary btn-sm btn-del-p" style="padding: 6px 10px; font-size: 0.8rem; color: #ff4f4d;"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
                 `;
@@ -674,46 +828,6 @@
             div.textContent = text;
             return div.innerHTML;
         }
-
-        // Quick Token Login handlers
-        const manualLoginModal = document.getElementById('manualLoginModal');
-        const manualChannelInput = document.getElementById('manualChannelInput');
-        const manualOauthInput = document.getElementById('manualOauthInput');
-
-        document.getElementById('btnOpenManualLogin').addEventListener('click', () => {
-            manualLoginModal.classList.add('open');
-        });
-        document.getElementById('btnCloseManualLogin').addEventListener('click', () => {
-            manualLoginModal.classList.remove('open');
-        });
-
-        document.getElementById('btnSubmitManualLogin').addEventListener('click', () => {
-            let chan = manualChannelInput.value.trim().toLowerCase().replace('#', '').replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '');
-            let token = manualOauthInput.value.trim();
-
-            if (!chan) return alert('Please enter your Twitch channel name.');
-            if (!token) return alert('Please enter your Twitch OAuth token.');
-            if (!token.startsWith('oauth:')) token = 'oauth:' + token;
-
-            const profileId = 'prof_' + Date.now();
-            const rawList = localStorage.getItem('msp_profiles_list');
-            let profiles = rawList ? JSON.parse(rawList) : [];
-
-            profiles.push({
-                id: profileId,
-                name: chan,
-                channel: chan
-            });
-
-            localStorage.setItem('msp_profiles_list', JSON.stringify(profiles));
-            localStorage.setItem('msp_active_profile', profileId);
-
-            localStorage.setItem(`msp_${profileId}_channel`, chan);
-            localStorage.setItem(`msp_${profileId}_user`, chan);
-            localStorage.setItem(`msp_${profileId}_oauth`, token);
-
-            window.location.href = 'index.html';
-        });
 
         // Run OAuth callback check immediately
         handleOAuthCallback();
