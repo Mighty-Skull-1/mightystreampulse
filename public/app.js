@@ -1042,6 +1042,18 @@ btnCreateProfile.addEventListener('click', () => {
 // Check URL Hash for Twitch OAuth Redirects (e.g. #access_token=...)
 async function checkOAuthRedirect() {
     const hash = window.location.hash;
+    const search = window.location.search;
+
+    if ((hash && hash.includes('error=')) || (search && search.includes('error='))) {
+        const queryStr = hash && hash.includes('error=') ? hash.substring(1) : search.substring(1);
+        const errParams = new URLSearchParams(queryStr);
+        const errType = errParams.get('error');
+        const errDesc = errParams.get('error_description') || errType;
+        window.history.replaceState(null, null, window.location.pathname);
+        alert(`Twitch Notice: ${errDesc}\n\nPlease verify that your Twitch Developer Console has "http://localhost:3000" in OAuth Redirect URLs.`);
+        return;
+    }
+
     if (hash && hash.includes('access_token=')) {
         const params = new URLSearchParams(hash.substring(1));
         const token = params.get('access_token');
