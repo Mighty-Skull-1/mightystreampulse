@@ -24,6 +24,20 @@ const defaultCommands = {
     '!game': '🎮 Currently grinding games with chat! Drop suggestions anytime.'
 };
 
+const defaultSoundboard = [
+    { id: 'sb_1', name: 'Airhorn', icon: '📢', type: 'preset', preset: 'airhorn' },
+    { id: 'sb_2', name: 'Hype Fanfare', icon: '🎉', type: 'preset', preset: 'hype' },
+    { id: 'sb_3', name: 'Applause', icon: '👏', type: 'preset', preset: 'applause' },
+    { id: 'sb_4', name: 'Bell Chime', icon: '🔔', type: 'preset', preset: 'ding' },
+    { id: 'sb_5', name: 'Ba-dum-tss', icon: '🥁', type: 'preset', preset: 'drum' },
+    { id: 'sb_6', name: 'Victory', icon: '🏆', type: 'preset', preset: 'victory' },
+    { id: 'sb_7', name: 'Game Over', icon: '💀', type: 'preset', preset: 'gameover' },
+    { id: 'sb_8', name: 'Laser', icon: '⚡', type: 'preset', preset: 'laser' },
+    { id: 'sb_9', name: 'Coin 1-Up', icon: '🪙', type: 'preset', preset: 'coin' },
+    { id: 'sb_10', name: 'Bonk', icon: '💥', type: 'preset', preset: 'bonk' },
+    { id: 'sb_11', name: 'Siren', icon: '🚨', type: 'preset', preset: 'siren' }
+];
+
 // Multi-Streamer Profile Authentication Check
 let currentProfileId = localStorage.getItem('msp_active_profile');
 let allProfiles = JSON.parse(localStorage.getItem('msp_profiles_list')) || [];
@@ -43,12 +57,16 @@ function loadProfileData() {
     deckButtons = JSON.parse(localStorage.getItem(getProfileKey('buttons'))) || defaultButtons;
     timedAnnouncements = JSON.parse(localStorage.getItem(getProfileKey('timers'))) || defaultTimers;
     customCommands = JSON.parse(localStorage.getItem(getProfileKey('commands'))) || defaultCommands;
+    soundboardSounds = JSON.parse(localStorage.getItem(getProfileKey('soundboard'))) || defaultSoundboard;
+    soundboardVolume = parseFloat(localStorage.getItem(getProfileKey('soundboard_vol')) || '0.7');
 }
 
 // State
 let deckButtons = defaultButtons;
 let timedAnnouncements = defaultTimers;
 let customCommands = defaultCommands;
+let soundboardSounds = defaultSoundboard;
+let soundboardVolume = 0.7;
 loadProfileData();
 
 let clientStats = { messagesSent: 0, messagesReceived: 0, activeChatters: {} };
@@ -61,46 +79,276 @@ let activeGiveaway = null;
 let activePoll = null;
 let activeTrivia = null;
 
-// Audio Synthesizer
+// Audio Synthesizer & Sound FX Engine
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playFx(type) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
 
-    if (type === 'hype') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(587.33, now);
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-    } else if (type === 'applause') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(440, now);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        osc.start(now);
-        osc.stop(now + 0.5);
-    } else if (type === 'ding') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1046.50, now);
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-        osc.start(now);
-        osc.stop(now + 0.8);
-    } else if (type === 'drum') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
-        gain.gain.setValueAtTime(0.6, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
+function playSynthesizedSound(type, volume = 0.7) {
+    try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), now);
+        masterGain.connect(audioCtx.destination);
+
+        if (type === 'airhorn') {
+            // MLG Airhorn: 3 rapid bursts (short, short, long)
+            const blasts = [
+                { start: 0, dur: 0.11 },
+                { start: 0.14, dur: 0.11 },
+                { start: 0.28, dur: 0.42 }
+            ];
+            blasts.forEach(b => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(466.16, now + b.start);
+                osc.frequency.setValueAtTime(587.33, now + b.start + 0.02);
+                g.gain.setValueAtTime(0, now + b.start);
+                g.gain.linearRampToValueAtTime(0.4, now + b.start + 0.01);
+                g.gain.setValueAtTime(0.4, now + b.start + b.dur - 0.02);
+                g.gain.exponentialRampToValueAtTime(0.001, now + b.start + b.dur);
+                osc.connect(g);
+                g.connect(masterGain);
+                osc.start(now + b.start);
+                osc.stop(now + b.start + b.dur);
+            });
+        } else if (type === 'hype') {
+            // Brassy fanfare arpeggio
+            const notes = [
+                { f: 523.25, t: 0, d: 0.1 },     // C5
+                { f: 659.25, t: 0.1, d: 0.1 },   // E5
+                { f: 783.99, t: 0.2, d: 0.12 },  // G5
+                { f: 1046.50, t: 0.32, d: 0.45 } // C6
+            ];
+            notes.forEach(n => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(n.f, now + n.t);
+                g.gain.setValueAtTime(0.3, now + n.t);
+                g.gain.exponentialRampToValueAtTime(0.01, now + n.t + n.d);
+                osc.connect(g);
+                g.connect(masterGain);
+                osc.start(now + n.t);
+                osc.stop(now + n.t + n.d);
+            });
+        } else if (type === 'applause') {
+            // Crowd applause with bandpass noise
+            const bufferSize = Math.floor(audioCtx.sampleRate * 1.4);
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * (Math.random() > 0.82 ? 1 : 0.2);
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(1100, now);
+            filter.Q.setValueAtTime(1.2, now);
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0.01, now);
+            g.gain.linearRampToValueAtTime(0.4, now + 0.15);
+            g.gain.setValueAtTime(0.4, now + 0.9);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+            noise.connect(filter);
+            filter.connect(g);
+            g.connect(masterGain);
+            noise.start(now);
+        } else if (type === 'ding') {
+            // Pure Bell Chime
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1046.50, now);
+            g.gain.setValueAtTime(0.5, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start(now);
+            osc.stop(now + 1.0);
+        } else if (type === 'drum') {
+            // Ba-dum-tss: Kick -> Tom -> Cymbal
+            const kick = audioCtx.createOscillator();
+            const kickG = audioCtx.createGain();
+            kick.frequency.setValueAtTime(160, now);
+            kick.frequency.exponentialRampToValueAtTime(45, now + 0.15);
+            kickG.gain.setValueAtTime(0.6, now);
+            kickG.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            kick.connect(kickG);
+            kickG.connect(masterGain);
+            kick.start(now);
+            kick.stop(now + 0.15);
+
+            const tom = audioCtx.createOscillator();
+            const tomG = audioCtx.createGain();
+            tom.frequency.setValueAtTime(220, now + 0.18);
+            tom.frequency.exponentialRampToValueAtTime(70, now + 0.32);
+            tomG.gain.setValueAtTime(0.5, now + 0.18);
+            tomG.gain.exponentialRampToValueAtTime(0.01, now + 0.32);
+            tom.connect(tomG);
+            tomG.connect(masterGain);
+            tom.start(now + 0.18);
+            tom.stop(now + 0.32);
+
+            const bufSize = Math.floor(audioCtx.sampleRate * 0.5);
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+            const cNoise = audioCtx.createBufferSource();
+            cNoise.buffer = buf;
+            const cFilter = audioCtx.createBiquadFilter();
+            cFilter.type = 'highpass';
+            cFilter.frequency.setValueAtTime(5000, now + 0.36);
+            const cGain = audioCtx.createGain();
+            cGain.gain.setValueAtTime(0.4, now + 0.36);
+            cGain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+            cNoise.connect(cFilter);
+            cFilter.connect(cGain);
+            cGain.connect(masterGain);
+            cNoise.start(now + 0.36);
+        } else if (type === 'victory') {
+            // Retro 8-bit Level Up Arpeggio
+            const freqs = [330, 392, 523, 659, 784, 1046];
+            freqs.forEach((f, i) => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(f, now + i * 0.08);
+                g.gain.setValueAtTime(0.2, now + i * 0.08);
+                const dur = i === freqs.length - 1 ? 0.35 : 0.08;
+                g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + dur);
+                osc.connect(g);
+                g.connect(masterGain);
+                osc.start(now + i * 0.08);
+                osc.stop(now + i * 0.08 + dur);
+            });
+        } else if (type === 'gameover') {
+            // Sad Trombone
+            const notes = [
+                { f: 293.66, t: 0, d: 0.22 },
+                { f: 277.18, t: 0.25, d: 0.22 },
+                { f: 261.63, t: 0.50, d: 0.22 },
+                { f: 246.94, t: 0.75, d: 0.65, slide: 200 }
+            ];
+            notes.forEach(n => {
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(n.f, now + n.t);
+                if (n.slide) {
+                    osc.frequency.linearRampToValueAtTime(n.slide, now + n.t + n.d);
+                }
+                g.gain.setValueAtTime(0.35, now + n.t);
+                g.gain.exponentialRampToValueAtTime(0.01, now + n.t + n.d);
+                osc.connect(g);
+                g.connect(masterGain);
+                osc.start(now + n.t);
+                osc.stop(now + n.t + n.d);
+            });
+        } else if (type === 'laser') {
+            // Retro Laser Sweep
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(1400, now);
+            osc.frequency.exponentialRampToValueAtTime(120, now + 0.18);
+            g.gain.setValueAtTime(0.4, now);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start(now);
+            osc.stop(now + 0.18);
+        } else if (type === 'coin') {
+            // Mario 1-Up Coin
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(987.77, now);
+            osc.frequency.setValueAtTime(1318.51, now + 0.08);
+            g.gain.setValueAtTime(0.25, now);
+            g.gain.setValueAtTime(0.25, now + 0.08);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start(now);
+            osc.stop(now + 0.45);
+        } else if (type === 'bonk') {
+            // Bonk Cartoon Impact
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(70, now + 0.12);
+            g.gain.setValueAtTime(0.6, now);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start(now);
+            osc.stop(now + 0.15);
+        } else if (type === 'siren') {
+            // Emergency Police / Ambulance Siren
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(650, now);
+            osc.frequency.linearRampToValueAtTime(1100, now + 0.25);
+            osc.frequency.linearRampToValueAtTime(650, now + 0.50);
+            osc.frequency.linearRampToValueAtTime(1100, now + 0.75);
+            osc.frequency.linearRampToValueAtTime(650, now + 1.0);
+            g.gain.setValueAtTime(0.35, now);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 1.05);
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start(now);
+            osc.stop(now + 1.05);
+        } else {
+            // Fallback Ping
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now);
+            g.gain.setValueAtTime(0.3, now);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc.connect(g);
+            g.connect(masterGain);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        }
+    } catch (err) {
+        console.error('Audio synth error:', err);
+    }
+}
+
+function playFx(type) {
+    playSynthesizedSound(type, soundboardVolume);
+}
+
+function playSoundItem(item) {
+    if (!item) return;
+    if (item.type === 'preset') {
+        playSynthesizedSound(item.preset || 'hype', soundboardVolume);
+    } else if (item.type === 'upload' && item.audioData) {
+        try {
+            const audio = new Audio(item.audioData);
+            audio.volume = Math.max(0, Math.min(1, soundboardVolume));
+            audio.play().catch(e => console.warn('Audio play error:', e));
+        } catch (e) {
+            console.error('Failed to play custom audio file:', e);
+        }
+    } else if (item.type === 'url' && item.url) {
+        try {
+            const audio = new Audio(item.url);
+            audio.volume = Math.max(0, Math.min(1, soundboardVolume));
+            audio.play().catch(e => {
+                console.warn('Audio URL play error:', e);
+                alert('Could not play audio from URL. Please check the link or CORS policy.');
+            });
+        } catch (e) {
+            console.error('Failed to play audio URL:', e);
+        }
+    } else {
+        playSynthesizedSound('hype', soundboardVolume);
     }
 }
 
@@ -208,10 +456,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     });
 });
 
-// Sound Buttons
-document.querySelectorAll('.fx-btn').forEach(btn => {
-    btn.addEventListener('click', () => playFx(btn.getAttribute('data-sound')));
-});
+// Sound Buttons (rendered dynamically via renderSoundboard)
 
 ttsToggle.addEventListener('change', (e) => {
     ttsEnabled = e.target.checked;
@@ -996,6 +1241,334 @@ document.getElementById('btnConfirmAdd').addEventListener('click', () => {
     addBtnModal.classList.remove('open');
 });
 
+// ==========================================
+// Custom Soundboard Studio & Volume Controls
+// ==========================================
+let sbTempUploadedData = null;
+
+function renderSoundboard() {
+    const grid = document.getElementById('soundboardGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    soundboardSounds.forEach((item, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'fx-btn';
+        btn.setAttribute('data-sound-index', index);
+        btn.title = item.name + (item.type === 'preset' ? ` (${item.preset})` : ` (${item.type})`);
+        btn.innerHTML = `<span style="margin-right: 4px;">${escapeHtml(item.icon || '🔊')}</span>${escapeHtml(item.name)}`;
+
+        btn.addEventListener('click', () => {
+            playSoundItem(item);
+            btn.style.transform = 'scale(0.93)';
+            setTimeout(() => { btn.style.transform = ''; }, 120);
+        });
+
+        grid.appendChild(btn);
+    });
+
+    const volSlider = document.getElementById('soundboardVolume');
+    if (volSlider) {
+        volSlider.value = soundboardVolume;
+    }
+}
+
+function updateSbTypeView(type) {
+    const grpPreset = document.getElementById('sbGroupPreset');
+    const grpUpload = document.getElementById('sbGroupUpload');
+    const grpUrl = document.getElementById('sbGroupUrl');
+    if (grpPreset) grpPreset.style.display = type === 'preset' ? 'block' : 'none';
+    if (grpUpload) grpUpload.style.display = type === 'upload' ? 'block' : 'none';
+    if (grpUrl) grpUrl.style.display = type === 'url' ? 'block' : 'none';
+}
+
+function resetSbForm() {
+    const editIdx = document.getElementById('sbEditIndex');
+    const titleEl = document.getElementById('sbFormTitle');
+    const nameEl = document.getElementById('sbInputName');
+    const iconEl = document.getElementById('sbInputIcon');
+    const typeEl = document.getElementById('sbSelectType');
+    const presetEl = document.getElementById('sbSelectPreset');
+    const fileEl = document.getElementById('sbFileInput');
+    const statusEl = document.getElementById('sbUploadStatus');
+    const urlEl = document.getElementById('sbUrlInput');
+
+    if (editIdx) editIdx.value = '-1';
+    if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-plus-circle"></i> Add Sound Button';
+    if (nameEl) nameEl.value = '';
+    if (iconEl) iconEl.value = '🔊';
+    if (typeEl) typeEl.value = 'preset';
+    if (presetEl) presetEl.value = 'airhorn';
+    if (fileEl) fileEl.value = '';
+    if (statusEl) statusEl.textContent = '';
+    if (urlEl) urlEl.value = '';
+    sbTempUploadedData = null;
+    updateSbTypeView('preset');
+}
+
+function editSbItem(index) {
+    const item = soundboardSounds[index];
+    if (!item) return;
+
+    const editIdx = document.getElementById('sbEditIndex');
+    const titleEl = document.getElementById('sbFormTitle');
+    const nameEl = document.getElementById('sbInputName');
+    const iconEl = document.getElementById('sbInputIcon');
+    const typeEl = document.getElementById('sbSelectType');
+    const presetEl = document.getElementById('sbSelectPreset');
+    const statusEl = document.getElementById('sbUploadStatus');
+    const urlEl = document.getElementById('sbUrlInput');
+
+    if (editIdx) editIdx.value = index;
+    if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> Edit "${escapeHtml(item.name)}"`;
+    if (nameEl) nameEl.value = item.name || '';
+    if (iconEl) iconEl.value = item.icon || '🔊';
+    if (typeEl) typeEl.value = item.type || 'preset';
+
+    updateSbTypeView(item.type || 'preset');
+
+    if (item.type === 'preset' && presetEl) {
+        presetEl.value = item.preset || 'airhorn';
+    } else if (item.type === 'upload') {
+        sbTempUploadedData = item.audioData || null;
+        if (statusEl) statusEl.textContent = item.audioData ? '✓ Custom audio file is attached' : '';
+    } else if (item.type === 'url' && urlEl) {
+        urlEl.value = item.url || '';
+    }
+
+    if (titleEl) titleEl.scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderSoundListManager() {
+    const listEl = document.getElementById('sbSoundList');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    if (soundboardSounds.length === 0) {
+        listEl.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 12px;">No sound buttons configured yet.</p>';
+        return;
+    }
+
+    soundboardSounds.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'sound-row-item';
+
+        let badgeText = item.type === 'preset' ? `Preset: ${item.preset}` : (item.type === 'upload' ? 'Uploaded File' : 'URL Link');
+
+        row.innerHTML = `
+            <div class="sound-info">
+                <span style="font-size: 1.2rem; min-width: 24px; text-align: center;">${escapeHtml(item.icon || '🔊')}</span>
+                <div>
+                    <div style="font-weight: 600; font-size: 0.85rem; color: #fff;">${escapeHtml(item.name)}</div>
+                    <span class="sound-badge">${escapeHtml(badgeText)}</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <button class="btn btn-secondary btn-sm btn-sb-test" title="Test Play" style="padding: 4px 8px;"><i class="fa-solid fa-play"></i></button>
+                <button class="btn btn-secondary btn-sm btn-sb-up" title="Move Up" style="padding: 4px 8px;" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+                <button class="btn btn-secondary btn-sm btn-sb-down" title="Move Down" style="padding: 4px 8px;" ${index === soundboardSounds.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+                <button class="btn btn-secondary btn-sm btn-sb-edit" title="Edit" style="padding: 4px 8px;"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button class="btn btn-secondary btn-sm btn-sb-del" title="Delete" style="padding: 4px 8px; color: #ef4444;"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+        `;
+
+        row.querySelector('.btn-sb-test').addEventListener('click', () => playSoundItem(item));
+
+        row.querySelector('.btn-sb-up').addEventListener('click', () => {
+            if (index > 0) {
+                const temp = soundboardSounds[index];
+                soundboardSounds[index] = soundboardSounds[index - 1];
+                soundboardSounds[index - 1] = temp;
+                localStorage.setItem(getProfileKey('soundboard'), JSON.stringify(soundboardSounds));
+                renderSoundboard();
+                renderSoundListManager();
+            }
+        });
+
+        row.querySelector('.btn-sb-down').addEventListener('click', () => {
+            if (index < soundboardSounds.length - 1) {
+                const temp = soundboardSounds[index];
+                soundboardSounds[index] = soundboardSounds[index + 1];
+                soundboardSounds[index + 1] = temp;
+                localStorage.setItem(getProfileKey('soundboard'), JSON.stringify(soundboardSounds));
+                renderSoundboard();
+                renderSoundListManager();
+            }
+        });
+
+        row.querySelector('.btn-sb-edit').addEventListener('click', () => editSbItem(index));
+
+        row.querySelector('.btn-sb-del').addEventListener('click', () => {
+            if (confirm(`Delete the "${item.name}" sound button?`)) {
+                soundboardSounds.splice(index, 1);
+                localStorage.setItem(getProfileKey('soundboard'), JSON.stringify(soundboardSounds));
+                renderSoundboard();
+                renderSoundListManager();
+                const curEdit = parseInt(document.getElementById('sbEditIndex').value, 10);
+                if (curEdit === index) resetSbForm();
+            }
+        });
+
+        listEl.appendChild(row);
+    });
+}
+
+// Soundboard Event Listeners Setup
+const soundboardModal = document.getElementById('soundboardModal');
+const btnOpenSoundModal = document.getElementById('btnOpenSoundModal');
+const btnCloseSoundModal = document.getElementById('btnCloseSoundModal');
+const btnCancelSoundModal = document.getElementById('btnCancelSoundModal');
+const btnSbResetDefaults = document.getElementById('btnSbResetDefaults');
+const soundboardVolumeInput = document.getElementById('soundboardVolume');
+const sbSelectTypeEl = document.getElementById('sbSelectType');
+const sbFileInputEl = document.getElementById('sbFileInput');
+const btnSbPreviewEl = document.getElementById('btnSbPreview');
+const btnSbSaveEl = document.getElementById('btnSbSave');
+
+if (btnOpenSoundModal) {
+    btnOpenSoundModal.addEventListener('click', () => {
+        resetSbForm();
+        renderSoundListManager();
+        if (soundboardModal) soundboardModal.classList.add('open');
+    });
+}
+
+function closeSoundModal() {
+    if (soundboardModal) soundboardModal.classList.remove('open');
+    resetSbForm();
+}
+
+if (btnCloseSoundModal) btnCloseSoundModal.addEventListener('click', closeSoundModal);
+if (btnCancelSoundModal) btnCancelSoundModal.addEventListener('click', closeSoundModal);
+
+if (sbSelectTypeEl) {
+    sbSelectTypeEl.addEventListener('change', (e) => updateSbTypeView(e.target.value));
+}
+
+if (sbFileInputEl) {
+    sbFileInputEl.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 8 * 1024 * 1024) {
+            alert('Audio file exceeds 8MB. Please choose a smaller sound file.');
+            sbFileInputEl.value = '';
+            return;
+        }
+        const status = document.getElementById('sbUploadStatus');
+        if (status) status.textContent = 'Reading file...';
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            sbTempUploadedData = ev.target.result;
+            if (status) status.textContent = `✓ Loaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        };
+        reader.onerror = () => {
+            alert('Failed to read audio file.');
+            if (status) status.textContent = 'Upload failed';
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+if (btnSbPreviewEl) {
+    btnSbPreviewEl.addEventListener('click', () => {
+        const type = document.getElementById('sbSelectType').value;
+        if (type === 'preset') {
+            const preset = document.getElementById('sbSelectPreset').value;
+            playSynthesizedSound(preset, soundboardVolume);
+        } else if (type === 'upload') {
+            const editIdx = parseInt(document.getElementById('sbEditIndex').value, 10);
+            const audioData = sbTempUploadedData || (editIdx >= 0 && soundboardSounds[editIdx]?.audioData);
+            if (!audioData) {
+                alert('Please choose an audio file first!');
+                return;
+            }
+            const audio = new Audio(audioData);
+            audio.volume = soundboardVolume;
+            audio.play().catch(e => alert('Cannot play audio: ' + e.message));
+        } else if (type === 'url') {
+            const url = document.getElementById('sbUrlInput').value.trim();
+            if (!url) {
+                alert('Please enter an audio URL first!');
+                return;
+            }
+            const audio = new Audio(url);
+            audio.volume = soundboardVolume;
+            audio.play().catch(e => alert('Cannot play audio URL: ' + e.message));
+        }
+    });
+}
+
+if (btnSbSaveEl) {
+    btnSbSaveEl.addEventListener('click', () => {
+        const name = document.getElementById('sbInputName').value.trim();
+        const icon = document.getElementById('sbInputIcon').value.trim() || '🔊';
+        const type = document.getElementById('sbSelectType').value;
+        const editIdx = parseInt(document.getElementById('sbEditIndex').value, 10);
+
+        if (!name) {
+            alert('Please give your sound button a name.');
+            document.getElementById('sbInputName').focus();
+            return;
+        }
+
+        const soundItem = {
+            id: editIdx >= 0 && soundboardSounds[editIdx] ? soundboardSounds[editIdx].id : 'sb_' + Date.now(),
+            name,
+            icon,
+            type
+        };
+
+        if (type === 'preset') {
+            soundItem.preset = document.getElementById('sbSelectPreset').value;
+        } else if (type === 'upload') {
+            const audioData = sbTempUploadedData || (editIdx >= 0 && soundboardSounds[editIdx]?.audioData);
+            if (!audioData) {
+                alert('Please upload an audio file first!');
+                return;
+            }
+            soundItem.audioData = audioData;
+        } else if (type === 'url') {
+            const url = document.getElementById('sbUrlInput').value.trim();
+            if (!url) {
+                alert('Please enter a valid audio URL!');
+                document.getElementById('sbUrlInput').focus();
+                return;
+            }
+            soundItem.url = url;
+        }
+
+        if (editIdx >= 0 && editIdx < soundboardSounds.length) {
+            soundboardSounds[editIdx] = soundItem;
+        } else {
+            soundboardSounds.push(soundItem);
+        }
+
+        localStorage.setItem(getProfileKey('soundboard'), JSON.stringify(soundboardSounds));
+        renderSoundboard();
+        renderSoundListManager();
+        resetSbForm();
+    });
+}
+
+if (btnSbResetDefaults) {
+    btnSbResetDefaults.addEventListener('click', () => {
+        if (confirm('Reset all soundboard buttons back to default presets?')) {
+            soundboardSounds = JSON.parse(JSON.stringify(defaultSoundboard));
+            localStorage.setItem(getProfileKey('soundboard'), JSON.stringify(soundboardSounds));
+            renderSoundboard();
+            renderSoundListManager();
+            resetSbForm();
+        }
+    });
+}
+
+if (soundboardVolumeInput) {
+    soundboardVolumeInput.addEventListener('input', (e) => {
+        soundboardVolume = parseFloat(e.target.value);
+        localStorage.setItem(getProfileKey('soundboard_vol'), soundboardVolume.toString());
+    });
+}
+
 // Credentials & Connections
 btnConnect.addEventListener('click', async () => {
     let username = botUsernameInput.value.trim();
@@ -1198,6 +1771,7 @@ async function checkOAuthRedirect() {
                     renderDeck();
                     renderTimers(timedAnnouncements);
                     renderCommands(customCommands);
+                    renderSoundboard();
 
                     await connectClientTmi(username, formattedToken, username);
                     return true;
@@ -1226,6 +1800,7 @@ async function initApp() {
     renderDeck();
     renderTimers(timedAnnouncements);
     renderCommands(customCommands);
+    renderSoundboard();
 
     const active = allProfiles.find(p => p.id === currentProfileId);
     if (active) {

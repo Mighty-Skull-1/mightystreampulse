@@ -55,12 +55,17 @@
 
             <!-- Soundboard Quick FX -->
             <div class="sound-fx-box">
-                <h4><i class="fa-solid fa-volume-high"></i> Soundboard FX</h4>
-                <div class="fx-buttons">
-                    <button class="fx-btn" data-sound="hype">🎉 Fanfare</button>
-                    <button class="fx-btn" data-sound="applause">👏 Applause</button>
-                    <button class="fx-btn" data-sound="ding">🔔 Bell</button>
-                    <button class="fx-btn" data-sound="drum">🥁 Ba-dum-tss</button>
+                <div class="sound-fx-header">
+                    <h4><i class="fa-solid fa-volume-high"></i> Soundboard FX</h4>
+                    <button id="btnOpenSoundModal" class="sb-tool-btn" title="Customize Soundboard (Add / Upload Sounds)"><i class="fa-solid fa-sliders"></i></button>
+                </div>
+                <div class="soundboard-volume-row">
+                    <i class="fa-solid fa-volume-low"></i>
+                    <input type="range" id="soundboardVolume" min="0" max="1" step="0.05" value="0.7" title="Master Volume">
+                    <i class="fa-solid fa-volume-high"></i>
+                </div>
+                <div class="fx-buttons" id="soundboardGrid">
+                    <!-- Dynamic custom sound buttons -->
                 </div>
             </div>
 
@@ -461,6 +466,91 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="btnCancelModal">Cancel</button>
                 <button class="btn btn-primary" id="btnConfirmAdd">Save Button</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Custom Soundboard Studio -->
+    <div class="modal-overlay" id="soundboardModal">
+        <div class="modal-card" style="max-width: 560px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-music"></i> Custom Soundboard Studio</h3>
+                <button class="modal-close" id="btnCloseSoundModal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+                    Customize your sound buttons! Pick built-in sound presets, upload custom MP3/WAV audio files from your PC, or paste an audio link.
+                </p>
+
+                <!-- Create / Edit Form Box -->
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+                    <h4 id="sbFormTitle" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; color: var(--primary);"><i class="fa-solid fa-plus-circle"></i> Add Sound Button</h4>
+                    <input type="hidden" id="sbEditIndex" value="-1">
+
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Sound Name</label>
+                            <input type="text" id="sbInputName" placeholder="e.g. Airhorn, Victory, Bruh">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Emoji / Icon</label>
+                            <input type="text" id="sbInputIcon" placeholder="📢" value="📢" style="text-align: center;">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Sound Source Type</label>
+                        <select id="sbSelectType">
+                            <option value="preset">⚡ Built-in Sound Preset</option>
+                            <option value="upload">📁 Upload Audio File (MP3 / WAV / OGG)</option>
+                            <option value="url">🔗 Direct Audio URL</option>
+                        </select>
+                    </div>
+
+                    <!-- Preset Options -->
+                    <div class="form-group" id="sbGroupPreset">
+                        <label>Choose Preset Sound</label>
+                        <select id="sbSelectPreset">
+                            <option value="airhorn">📢 MLG Airhorn Blast</option>
+                            <option value="hype">🎉 Hype Fanfare</option>
+                            <option value="applause">👏 Crowd Applause</option>
+                            <option value="ding">🔔 Bell Chime</option>
+                            <option value="drum">🥁 Ba-dum-tss / Drumroll</option>
+                            <option value="victory">🏆 Level Up / Victory Arpeggio</option>
+                            <option value="gameover">💀 Game Over / Sad Trombone</option>
+                            <option value="laser">⚡ Retro Laser Blaster</option>
+                            <option value="coin">🪙 Mario 1-Up Coin</option>
+                            <option value="bonk">💥 Cartoon Bonk</option>
+                            <option value="siren">🚨 Emergency Siren Alert</option>
+                        </select>
+                    </div>
+
+                    <!-- Upload Options -->
+                    <div class="form-group" id="sbGroupUpload" style="display: none;">
+                        <label>Upload Audio File (.mp3, .wav, .ogg, .m4a)</label>
+                        <input type="file" id="sbFileInput" accept="audio/*" style="font-size: 0.85rem;">
+                        <span id="sbUploadStatus" style="font-size: 0.75rem; color: #00f0ff; display: block; margin-top: 4px;"></span>
+                    </div>
+
+                    <!-- URL Option -->
+                    <div class="form-group" id="sbGroupUrl" style="display: none;">
+                        <label>Direct Audio URL</label>
+                        <input type="url" id="sbUrlInput" placeholder="https://example.com/sound.mp3">
+                    </div>
+
+                    <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px;">
+                        <button id="btnSbPreview" class="btn btn-secondary" style="padding: 7px 14px;"><i class="fa-solid fa-play"></i> Test Play</button>
+                        <button id="btnSbSave" class="btn btn-primary" style="padding: 7px 18px;"><i class="fa-solid fa-check"></i> Save to Soundboard</button>
+                    </div>
+                </div>
+
+                <!-- Current Soundboard List -->
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px;">Active Soundboard Buttons</h4>
+                <div id="sbSoundList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                <button class="btn btn-secondary" id="btnSbResetDefaults" style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-rotate-left"></i> Reset Defaults</button>
+                <button class="btn btn-secondary" id="btnCancelSoundModal">Close</button>
             </div>
         </div>
     </div>

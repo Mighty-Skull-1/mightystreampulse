@@ -215,20 +215,65 @@ body {
     padding: 10px;
 }
 
-.sound-fx-box h4 {
+.sound-fx-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.sound-fx-header h4 {
     font-size: 0.68rem;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 6px;
     display: flex;
     align-items: center;
     gap: 6px;
+    margin: 0;
+}
+
+.sb-tool-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.78rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.sb-tool-btn:hover {
+    color: #00f0ff;
+    background: rgba(0, 240, 255, 0.1);
+}
+
+.soundboard-volume-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 2px;
+}
+
+.soundboard-volume-row i {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.soundboard-volume-row input[type="range"] {
+    flex: 1;
+    height: 3px;
+    accent-color: var(--primary);
+    cursor: pointer;
 }
 
 .fx-buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px;
+    max-height: 180px;
+    overflow-y: auto;
 }
 
 .fx-btn {
@@ -241,11 +286,41 @@ body {
     cursor: pointer;
     font-weight: 600;
     transition: all 0.15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
 }
 
 .fx-btn:hover {
     background: var(--primary);
     border-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.sound-row-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.sound-row-item .sound-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sound-row-item .sound-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(145, 70, 255, 0.15);
+    color: #d1b3ff;
+    text-transform: uppercase;
 }
 
 /* Stats Mini Box */
