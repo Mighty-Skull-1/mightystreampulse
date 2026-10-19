@@ -39,7 +39,6 @@
                 <button class="nav-btn" data-tab="tab-timers"><i class="fa-solid fa-clock"></i> Timed Announcements</button>
                 <button class="nav-btn" data-tab="tab-commands"><i class="fa-solid fa-terminal"></i> Bot Chat Commands</button>
                 <button class="nav-btn" data-tab="tab-overlay"><i class="fa-solid fa-video"></i> OBS Overlay Setup</button>
-                <button class="nav-btn" data-tab="tab-settings"><i class="fa-solid fa-sliders"></i> Bot Credentials</button>
             </nav>
 
             <!-- TTS Voice Toggle -->
@@ -358,58 +357,13 @@
                     </div>
                 </div>
 
-                <!-- Tab 7: Credentials & Config -->
-                <div class="tab-content" id="tab-settings">
-                    <div class="panel-inner settings-max-width">
-                        <div class="section-banner">
-                            <div>
-                                <h2>Twitch Bot Credentials</h2>
-                                <p>Configure your bot username and official Twitch IRC authentication token.</p>
-                            </div>
-                        </div>
-
-                        <div class="settings-card">
-                            <!-- Direct 1-Click Twitch Connect Banner -->
-                            <div class="twitch-oauth-hero">
-                                <div class="hero-left">
-                                    <i class="fa-brands fa-twitch twitch-hero-icon"></i>
-                                    <div>
-                                        <h3>Twitch Bot Authorization</h3>
-                                        <p>Generate a secure Twitch token to connect your bot account to chat.</p>
-                                    </div>
-                                </div>
-                                <a href="login.html" class="btn btn-twitch-auth">
-                                    <i class="fa-brands fa-twitch"></i> 1-Click Connect With Twitch
-                                </a>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="botUsername">Twitch Bot Account Name</label>
-                                <input type="text" id="botUsername" placeholder="e.g. YourBotName or your twitch username">
-                                <small>The username of the account that will post chat messages.</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="oauthToken">
-                                    Twitch OAuth Token
-                                    <a href="https://twitchapps.com/tmi/" target="_blank" class="help-link"><i class="fa-solid fa-arrow-up-right-from-square"></i> Generate Free Token</a>
-                                </label>
-                                <input type="password" id="oauthToken" placeholder="oauth:••••••••••••••••••••••••••••••">
-                                <small>Twitch requires an IRC password token to authorize sending messages.</small>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="targetChannel">Target Channel Name</label>
-                                <input type="text" id="targetChannel" placeholder="e.g. yourchannelname">
-                                <small>Your live Twitch stream channel where messages will be sent.</small>
-                            </div>
-
-                            <div class="settings-actions">
-                                <button id="btnConnect" class="btn btn-primary"><i class="fa-solid fa-plug"></i> Connect Bot</button>
-                                <button id="btnDisconnect" class="btn btn-secondary"><i class="fa-solid fa-power-off"></i> Disconnect</button>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Hidden Bot Credentials (Auto-managed via Twitch OAuth) -->
+                <div style="display: none;" id="tab-settings">
+                    <input type="text" id="botUsername">
+                    <input type="password" id="oauthToken">
+                    <input type="text" id="targetChannel">
+                    <button id="btnConnect"></button>
+                    <button id="btnDisconnect"></button>
                 </div>
 
                 <!-- Live Twitch Chat Slide-out Panel -->
