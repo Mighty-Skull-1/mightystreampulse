@@ -397,7 +397,14 @@ async function connectClientTmi(username, oauth, channel) {
         authRejectFn = reject;
     });
 
-    clientTmi = new tmi.Client({
+    const tmiLib = window.tmi || (typeof tmi !== 'undefined' ? tmi : null);
+    if (!tmiLib || !tmiLib.Client) {
+        updateStatusUI('disconnected', chan);
+        alert('Twitch Chat engine (TMI) is not loaded. Please hard refresh (Ctrl+F5) to load the latest files.');
+        return false;
+    }
+
+    clientTmi = new tmiLib.Client({
         options: { debug: false },
         connection: {
             reconnect: false, // Prevent infinite hanging retry loop during auth check
