@@ -405,7 +405,10 @@ async function connectClientTmi(username, oauth, channel) {
     }
 
     clientTmi = new tmiLib.Client({
-        options: { debug: false },
+        options: {
+            debug: false,
+            skipUpdatingEmotesets: true
+        },
         connection: {
             reconnect: false, // Prevent infinite hanging retry loop during auth check
             secure: true
