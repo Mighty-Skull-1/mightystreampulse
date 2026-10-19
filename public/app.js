@@ -28,15 +28,9 @@ const defaultCommands = {
 let currentProfileId = localStorage.getItem('msp_active_profile');
 let allProfiles = JSON.parse(localStorage.getItem('msp_profiles_list')) || [];
 
-// If no active profile, create a default profile so the user can immediately use the dashboard
+// If no active profile exists or user is unauthenticated, redirect to login page
 if (!currentProfileId || allProfiles.length === 0 || !allProfiles.some(p => p.id === currentProfileId)) {
-    const defaultChan = 'mightyttv0';
-    currentProfileId = currentProfileId || 'prof_default';
-    localStorage.setItem('msp_active_profile', currentProfileId);
-    if (!allProfiles.some(p => p.id === currentProfileId)) {
-        allProfiles.push({ id: currentProfileId, name: defaultChan, channel: defaultChan });
-        localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
-    }
+    window.location.href = 'login.html';
 }
 
 function getProfileKey(key) {
@@ -1050,7 +1044,11 @@ async function checkOAuthRedirect() {
         const errType = errParams.get('error');
         const errDesc = errParams.get('error_description') || errType;
         window.history.replaceState(null, null, window.location.pathname);
-        alert(`Twitch Notice: ${errDesc}\n\nPlease verify that your Twitch Developer Console has "http://localhost:3000" in OAuth Redirect URLs.`);
+        if (errType === 'access_denied') {
+            window.location.href = 'login.html';
+            return;
+        }
+        alert(`Twitch Notice: ${errDesc}\n\nPlease verify that your Twitch Developer Console has "${window.location.origin}" in OAuth Redirect URLs.`);
         return;
     }
 

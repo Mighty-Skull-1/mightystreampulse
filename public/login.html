@@ -460,9 +460,8 @@
             </div>
 
             <!-- Top Header Bar -->
-            <div class="card-header-bar">
+            <div style="display: flex; justify-content: center; margin-bottom: 22px;">
                 <span class="brand-pill"><i class="fa-solid fa-bolt"></i> MightyStreamPulse</span>
-                <a href="index.html" class="btn-card-close" title="Open Dashboard"><i class="fa-solid fa-xmark"></i></a>
             </div>
 
             <!-- Title -->
@@ -515,7 +514,7 @@
             <p>Connect immediately with your Twitch channel and chat token:</p>
             
             <label>TWITCH CHANNEL</label>
-            <input type="text" id="manualChannelInput" placeholder="e.g. mightyttv0">
+            <input type="text" id="manualChannelInput" placeholder="e.g. your_channel_name">
 
             <label>
                 OAUTH TOKEN 
@@ -671,8 +670,13 @@
                 const errParams = new URLSearchParams(queryStr);
                 const errType = errParams.get('error');
                 const errDesc = errParams.get('error_description') || errType;
-                alert(`Twitch Notice: ${errDesc}\n\nTip: In your Twitch Developer Console, make sure your Redirect URL is set to:\n${REDIRECT_URI}`);
                 window.history.replaceState(null, null, window.location.pathname);
+                if (errType === 'access_denied') {
+                    // User clicked cancel on Twitch authorization screen
+                    alert('Twitch login was cancelled. You remain logged out.');
+                } else {
+                    alert(`Twitch Notice: ${errDesc}\n\nTip: In your Twitch Developer Console, make sure your Redirect URL is set to:\n${REDIRECT_URI}`);
+                }
                 return;
             }
 
