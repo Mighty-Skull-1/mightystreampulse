@@ -1034,16 +1034,47 @@ btnCreateProfile.addEventListener('click', () => {
 });
 
 // Check URL Hash for Twitch OAuth Redirects (e.g. #access_token=...)
-function checkOAuthRedirect() {
+async function checkOAuthRedirect() {
     const hash = window.location.hash;
     if (hash && hash.includes('access_token=')) {
         const params = new URLSearchParams(hash.substring(1));
         const token = params.get('access_token');
         if (token) {
+            window.history.replaceState(null, null, window.location.pathname);
+            try {
+                const valRes = await fetch('https://id.twitch.tv/oauth2/validate', {
+                    headers: { 'Authorization': 'OAuth ' + token }
+                });
+                if (valRes.ok) {
+                    const valData = await valRes.json();
+                    const username = valData.login.toLowerCase();
+                    const formattedToken = 'oauth:' + token;
+                    botUsernameInput.value = username;
+                    targetChannelInput.value = username;
+                    oauthTokenInput.value = '';
+                    oauthTokenInput.placeholder = 'oauth:•••••••• (saved for this profile)';
+                    
+                    localStorage.setItem(getProfileKey('user'), username);
+                    localStorage.setItem(getProfileKey('channel'), username);
+                    localStorage.setItem(getProfileKey('oauth'), formattedToken);
+
+                    // Update active profile name
+                    const active = allProfiles.find(p => p.id === currentProfileId);
+                    if (active) {
+                        active.name = username;
+                        active.channel = username;
+                        localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
+                        if (activeAccountName) activeAccountName.textContent = username;
+                    }
+
+                    connectClientTmi(username, formattedToken, username);
+                    return;
+                }
+            } catch (e) {}
+
             oauthTokenInput.value = 'oauth:' + token;
             localStorage.setItem(getProfileKey('oauth'), 'oauth:' + token);
-            window.history.replaceState(null, null, window.location.pathname);
-            alert('Twitch Token successfully imported! Enter your username and click Connect.');
+            alert('Twitch Token imported! Click Connect Bot to activate.');
         }
     }
 }
