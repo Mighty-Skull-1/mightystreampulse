@@ -303,7 +303,7 @@ async function sendChatMessage(message) {
         const result = await res.json();
         if (!result.success) alert('Error sending: ' + result.error);
     } catch (e) {
-        alert('Bot is not connected. Go to Bot Credentials to connect.');
+        alert('Bot is not connected to Twitch yet. Click "Switch / Exit" in the top-right corner to log in with your account.');
     }
 }
 
