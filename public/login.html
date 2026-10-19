@@ -7,6 +7,43 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
+        /* Custom Scrollbar Matching Dark / Purple Theme */
+        html, body, * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(145, 70, 255, 0.45) #0d0d11;
+        }
+        ::-webkit-scrollbar, *::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track, *::-webkit-scrollbar-track {
+            background: #0d0d11;
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb, *::-webkit-scrollbar-thumb {
+            background: rgba(145, 70, 255, 0.45);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        ::-webkit-scrollbar-thumb:hover, *::-webkit-scrollbar-thumb:hover {
+            background: rgba(145, 70, 255, 0.85);
+            background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-thumb:active, *::-webkit-scrollbar-thumb:active {
+            background: #9146ff;
+            box-shadow: 0 0 10px rgba(145, 70, 255, 0.7);
+        }
+        ::-webkit-scrollbar-button, *::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        ::-webkit-scrollbar-corner, *::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
