@@ -404,6 +404,12 @@ async function connectClientTmi(username, oauth, channel) {
         startClientTimers();
     });
 
+    clientTmi.on('join', (channelName, username, self) => {
+        if (self) {
+            updateStatusUI('connected', chan);
+        }
+    });
+
     clientTmi.on('disconnected', (reason) => {
         updateStatusUI('disconnected', chan);
         Object.values(clientTimers).forEach(id => clearInterval(id));
@@ -505,6 +511,9 @@ async function connectClientTmi(username, oauth, channel) {
         if (authFailed) {
             throw new Error('Authentication rejected by Twitch.');
         }
+
+        updateStatusUI('connected', chan);
+        startClientTimers();
 
         localStorage.setItem(getProfileKey('user'), user);
         localStorage.setItem(getProfileKey('oauth'), token);
