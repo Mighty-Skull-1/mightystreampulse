@@ -388,6 +388,10 @@ async function connectClientTmi(username, oauth, channel) {
     updateStatusUI('connecting', chan);
 
     let authFailed = false;
+    let authRejectFn = null;
+    const authPromise = new Promise((_, reject) => {
+        authRejectFn = reject;
+    });
 
     clientTmi = new tmi.Client({
         options: { debug: false },
@@ -416,13 +420,17 @@ async function connectClientTmi(username, oauth, channel) {
     });
 
     // Capture Twitch authentication failure notices from raw messages
-    clientTmi.on('raw_message', (msgCloned, msg) => {
-        if (msg && msg.command === 'NOTICE' && msg.params) {
-            const rawText = msg.params.join(' ');
-            if (rawText.toLowerCase().includes('login authentication failed') || rawText.toLowerCase().includes('improperly formatted auth') || rawText.toLowerCase().includes('login unsuccessful')) {
+    clientTmi.on('raw_message', (msg1, msg2) => {
+        const msg = (msg2 && (msg2.command || msg2.params)) ? msg2 : msg1;
+        if (msg) {
+            const cmd = msg.command || '';
+            const rawText = (msg.params ? msg.params.join(' ') : (msg.raw || '')).toLowerCase();
+            if (rawText.includes('login authentication failed') || rawText.includes('improperly formatted auth') || rawText.includes('login unsuccessful') || rawText.includes('notice * :login')) {
                 authFailed = true;
                 updateStatusUI('disconnected', chan);
-                alert(`Twitch Login Failed: ${rawText}\n\nTroubleshooting tips:\n1. Your Bot Username must be in all-lowercase (e.g. "${user}").\n2. The Bot Username must match the exact Twitch account that generated the OAuth token.\n3. Verify your token at https://twitchapps.com/tmi/`);
+                if (authRejectFn) {
+                    authRejectFn(new Error(`Login authentication failed. Twitch rejected the OAuth credentials for "${user}".`));
+                }
             }
         }
     });
@@ -431,7 +439,9 @@ async function connectClientTmi(username, oauth, channel) {
         if (msgid === 'msg_channel_suspended' || msgid === 'login_unsuccessful') {
             authFailed = true;
             updateStatusUI('disconnected', chan);
-            alert('Twitch Login Error: ' + message);
+            if (authRejectFn) {
+                authRejectFn(new Error(`Twitch error: ${message}`));
+            }
         }
     });
 
@@ -506,7 +516,7 @@ async function connectClientTmi(username, oauth, channel) {
     });
 
     try {
-        await Promise.race([connectPromise, timeoutPromise]);
+        await Promise.race([connectPromise, timeoutPromise, authPromise]);
 
         if (authFailed) {
             throw new Error('Authentication rejected by Twitch.');
@@ -528,12 +538,10 @@ async function connectClientTmi(username, oauth, channel) {
 
         return true;
     } catch (err) {
-        updateStatusUI('disconnected');
+        updateStatusUI('disconnected', chan);
         try { await clientTmi.disconnect(); } catch (e) {}
         clientTmi = null;
-        if (!authFailed) {
-            alert('Failed to connect to Twitch: ' + (err.message || err));
-        }
+        alert(`Twitch Bot Connection Failed:\n${err.message || err}\n\nTroubleshooting:\n1. Click "Switch / Exit" in the top-right corner.\n2. Reconnect with Twitch or use "Quick Token" with your token from twitchapps.com/tmi/`);
         return false;
     }
 }
