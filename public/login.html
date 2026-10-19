@@ -439,6 +439,7 @@
             localStorage.setItem('msp_active_profile', newId);
 
             localStorage.setItem(`msp_${newId}_channel`, channel);
+            localStorage.setItem(`msp_${newId}_user`, channel);
             if (oauth) {
                 const token = oauth.startsWith('oauth:') ? oauth : 'oauth:' + oauth;
                 localStorage.setItem(`msp_${newId}_oauth`, token);

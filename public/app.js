@@ -357,15 +357,43 @@ async function connectClientTmi(username, oauth, channel) {
         clientTmi = null;
     }
 
-    let token = oauth.trim();
+    let token = (oauth || '').trim();
+    if (!token) {
+        token = localStorage.getItem(getProfileKey('oauth')) || '';
+    }
+    if (!token) {
+        updateStatusUI('disconnected');
+        alert('Please enter your Twitch OAuth Token first!\nYou can click "Verify & Connect With Twitch API" or visit https://twitchapps.com/tmi/ to generate one.');
+        return false;
+    }
     if (!token.startsWith('oauth:')) token = 'oauth:' + token;
-    const chan = channel.trim().toLowerCase().replace('#', '');
-    const user = username.trim().toLowerCase();
+
+    let chan = sanitizeChannelName((channel || '').trim());
+    if (!chan) {
+        chan = sanitizeChannelName(localStorage.getItem(getProfileKey('channel')) || '');
+    }
+
+    let user = sanitizeChannelName((username || '').trim());
+    if (!user) {
+        user = sanitizeChannelName(localStorage.getItem(getProfileKey('user')) || chan);
+    }
+
+    if (!user || !chan) {
+        updateStatusUI('disconnected');
+        alert('Please provide your Twitch username and target channel.');
+        return false;
+    }
 
     updateStatusUI('connecting', chan);
 
+    let authFailed = false;
+
     clientTmi = new tmi.Client({
         options: { debug: false },
+        connection: {
+            reconnect: false, // Prevent infinite hanging retry loop during auth check
+            secure: true
+        },
         identity: { username: user, password: token },
         channels: [chan]
     });
@@ -375,9 +403,29 @@ async function connectClientTmi(username, oauth, channel) {
         startClientTimers();
     });
 
-    clientTmi.on('disconnected', () => {
+    clientTmi.on('disconnected', (reason) => {
         updateStatusUI('disconnected', chan);
         Object.values(clientTimers).forEach(id => clearInterval(id));
+    });
+
+    // Capture Twitch authentication failure notices from raw messages
+    clientTmi.on('raw_message', (msgCloned, msg) => {
+        if (msg && msg.command === 'NOTICE' && msg.params) {
+            const rawText = msg.params.join(' ');
+            if (rawText.toLowerCase().includes('login authentication failed') || rawText.toLowerCase().includes('improperly formatted auth') || rawText.toLowerCase().includes('login unsuccessful')) {
+                authFailed = true;
+                updateStatusUI('disconnected', chan);
+                alert(`Twitch Login Failed: ${rawText}\n\nTroubleshooting tips:\n1. Your Bot Username must be in all-lowercase (e.g. "${user}").\n2. The Bot Username must match the exact Twitch account that generated the OAuth token.\n3. Verify your token at https://twitchapps.com/tmi/`);
+            }
+        }
+    });
+
+    clientTmi.on('notice', (channel, msgid, message) => {
+        if (msgid === 'msg_channel_suspended' || msgid === 'login_unsuccessful') {
+            authFailed = true;
+            updateStatusUI('disconnected', chan);
+            alert('Twitch Login Error: ' + message);
+        }
     });
 
     clientTmi.on('message', async (channelName, tags, message, self) => {
@@ -445,8 +493,18 @@ async function connectClientTmi(username, oauth, channel) {
         }
     });
 
+    const connectPromise = clientTmi.connect();
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timed out (10s). Twitch did not respond. Check your credentials.')), 10000);
+    });
+
     try {
-        await clientTmi.connect();
+        await Promise.race([connectPromise, timeoutPromise]);
+
+        if (authFailed) {
+            throw new Error('Authentication rejected by Twitch.');
+        }
+
         localStorage.setItem(getProfileKey('user'), user);
         localStorage.setItem(getProfileKey('oauth'), token);
         localStorage.setItem(getProfileKey('channel'), chan);
@@ -461,7 +519,11 @@ async function connectClientTmi(username, oauth, channel) {
         return true;
     } catch (err) {
         updateStatusUI('disconnected');
-        alert('Failed to connect to Twitch: ' + err);
+        try { await clientTmi.disconnect(); } catch (e) {}
+        clientTmi = null;
+        if (!authFailed) {
+            alert('Failed to connect to Twitch: ' + (err.message || err));
+        }
         return false;
     }
 }
@@ -833,23 +895,38 @@ document.getElementById('btnConfirmAdd').addEventListener('click', () => {
 
 // Credentials & Connections
 btnConnect.addEventListener('click', async () => {
-    const username = botUsernameInput.value.trim();
-    const oauth = oauthTokenInput.value.trim();
-    const channel = targetChannelInput.value.trim();
+    let username = botUsernameInput.value.trim();
+    let oauth = oauthTokenInput.value.trim() || localStorage.getItem(getProfileKey('oauth')) || '';
+    let channel = targetChannelInput.value.trim() || localStorage.getItem(getProfileKey('channel')) || '';
+
+    if (!username) {
+        username = localStorage.getItem(getProfileKey('user')) || channel;
+        botUsernameInput.value = username;
+    }
 
     if (!username || !channel) return alert('Please enter Bot Username and Channel name!');
+    if (!oauth) return alert('Please enter your Twitch OAuth Token! Click the Twitch API link to generate one.');
 
-    // First try client-side WebSocket IRC
-    const ok = await connectClientTmi(username, oauth, channel);
-    if (!ok) {
-        // Fallback to local server API if running on localhost
-        try {
-            await fetch('/api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, oauth, channel })
-            });
-        } catch (e) {}
+    btnConnect.disabled = true;
+    const origHtml = btnConnect.innerHTML;
+    btnConnect.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Connecting...';
+
+    try {
+        // First try client-side WebSocket IRC
+        const ok = await connectClientTmi(username, oauth, channel);
+        if (!ok) {
+            // Fallback to local server API if running on localhost
+            try {
+                await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, oauth, channel })
+                });
+            } catch (e) {}
+        }
+    } finally {
+        btnConnect.disabled = false;
+        btnConnect.innerHTML = origHtml;
     }
 });
 
@@ -984,9 +1061,9 @@ function initApp() {
         activeAccountName.textContent = active.name;
     }
 
-    const savedUser = localStorage.getItem(getProfileKey('user')) || '';
-    const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
     const savedChan = localStorage.getItem(getProfileKey('channel')) || (active ? active.channel : '');
+    const savedUser = localStorage.getItem(getProfileKey('user')) || savedChan || '';
+    const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
 
     botUsernameInput.value = savedUser;
     targetChannelInput.value = savedChan;
