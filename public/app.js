@@ -548,7 +548,14 @@ async function sendChatMessage(message) {
     if (!message || !message.trim()) return;
 
     if (clientTmi && clientTmi.readyState() === 'OPEN') {
-        const channel = targetChannelInput.value.trim().toLowerCase().replace('#', '');
+        let channel = targetChannelInput.value.trim().toLowerCase().replace('#', '');
+        if (!channel && typeof clientTmi.getChannels === 'function') {
+            const chans = clientTmi.getChannels();
+            if (chans && chans.length > 0) channel = chans[0].replace('#', '');
+        }
+        if (!channel) {
+            channel = (localStorage.getItem(getProfileKey('channel')) || '').toLowerCase().replace('#', '');
+        }
         try {
             await clientTmi.say(channel, message.trim());
             clientStats.messagesSent++;
@@ -561,7 +568,7 @@ async function sendChatMessage(message) {
                 timestamp: new Date().toLocaleTimeString()
             });
         } catch (e) {
-            alert('Failed to send: ' + e.message);
+            console.error('[MightyStreamPulse] Failed to send chat message:', e);
         }
         return;
     }
@@ -923,8 +930,8 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
         const chatterLower = (tags.username || tags['display-name'] || '').toLowerCase();
         const botUserLower = (user || '').toLowerCase();
 
-        // Skip echo if sent by our own bot/dashboard (already added once as MightyStreamPulse Bot)
-        if (self || chatterLower === botUserLower) return;
+        // Skip echo if sent by this client instance (TMI sets self=true when this client calls say())
+        if (self) return;
         clientStats.messagesReceived++;
         if (chatter) clientStats.activeChatters[chatter] = (clientStats.activeChatters[chatter] || 0) + 1;
         updateStatsUI(clientStats);
@@ -983,37 +990,40 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
 
         // 5. YouTube Song Requests & Jukebox Commands
         if (!self) {
-            // Check current playing song (!song, !np, !currentsong with no parameters)
-            if (lower === '!song' || lower === '!np' || lower === '!currentsong') {
-                if (currentPlayingSong) {
-                    await sendChatMessage(`🎶 @${chatter} Now playing: "${currentPlayingSong.title}" [Requested by @${currentPlayingSong.requestedBy}]`);
-                } else {
-                    await sendChatMessage(`🎵 @${chatter} No song is currently playing. Request one using !song <youtube-link>!`);
-                }
-                return;
-            }
+            // Support queuing via !song <link>, !sr <link>, !songrequest <link>, and !queue <link> / !songqueue <link>
+            const isSongAddCmd = lower.startsWith('!song ') || lower.startsWith('!sr ') || lower.startsWith('!songrequest ');
+            const isQueueAddCmd = (lower.startsWith('!queue ') || lower.startsWith('!songqueue ')) && !!extractYouTubeVideoId(trimmed.replace(/^!(queue|songqueue)\s+/i, '').trim());
 
-            // Song request with link/ID (!song <link>, !sr <link>, !songrequest <link>)
-            if (lower.startsWith('!song ') || lower.startsWith('!sr ') || lower.startsWith('!songrequest ')) {
-                const songQuery = trimmed.replace(/^!(song|sr|songrequest)\s+/i, '').trim();
+            if (isSongAddCmd || isQueueAddCmd) {
+                const songQuery = trimmed.replace(/^!(song|sr|songrequest|queue|songqueue)\s+/i, '').trim();
                 if (!songRequestsEnabled) {
                     await sendChatMessage(`🔒 @${chatter} Song requests are currently paused by the streamer.`);
                     return;
                 }
                 const videoId = extractYouTubeVideoId(songQuery);
                 if (!videoId) {
-                    await sendChatMessage(`⚠️ @${chatter} Invalid YouTube link. Please provide a valid YouTube link or video ID (e.g. !song https://youtu.be/...)`);
+                    await sendChatMessage(`⚠️ @${chatter} Invalid YouTube link or ID. Example: !song https://youtu.be/A5R10_rLOAc`);
                     return;
                 }
                 await addSongToQueue(videoId, chatter, true);
                 return;
             }
 
-            // Check upcoming queue (!queue, !songqueue)
-            if (lower === '!queue' || lower === '!songqueue') {
+            // Check current playing song (!song, !np, !currentsong with NO parameters)
+            if (lower === '!song' || lower === '!np' || lower === '!currentsong') {
+                if (currentPlayingSong) {
+                    await sendChatMessage(`🎶 @${chatter} Now playing: "${currentPlayingSong.title}" [Requested by @${currentPlayingSong.requestedBy}]`);
+                } else {
+                    await sendChatMessage(`🎵 @${chatter} No song is currently playing. Request one using !song https://youtu.be/...`);
+                }
+                return;
+            }
+
+            // Check upcoming queue (!queue, !songqueue without a song link)
+            if (lower === '!queue' || lower === '!songqueue' || lower.startsWith('!queue') || lower.startsWith('!songqueue')) {
                 if (songQueue.length === 0) {
                     const npInfo = currentPlayingSong ? `Now playing: "${currentPlayingSong.title}". ` : '';
-                    await sendChatMessage(`📋 @${chatter} ${npInfo}The upcoming queue is empty! Type !song <link> to request a track!`);
+                    await sendChatMessage(`📋 @${chatter} ${npInfo}The upcoming queue is empty! Type !song [link] to request a track!`);
                 } else {
                     const topItems = songQueue.slice(0, 3).map((s, idx) => `#${idx + 1}: ${s.title} (@${s.requestedBy})`).join(' | ');
                     const more = songQueue.length > 3 ? ` (+${songQueue.length - 3} more)` : '';
@@ -1025,7 +1035,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
             // Skip current song (!skip, !skipsong) - Broadcaster & Mod only
             if (lower === '!skip' || lower === '!skipsong') {
                 const chan = (targetChannelInput.value || '').trim().toLowerCase().replace('#', '');
-                const isBroadcaster = (tags.badges && tags.badges.broadcaster) || chatterLower === chan;
+                const isBroadcaster = (tags.badges && tags.badges.broadcaster) || chatterLower === chan || chatterLower === botUserLower;
                 const isMod = tags.mod || isBroadcaster;
                 if (!isMod) {
                     await sendChatMessage(`⛔ @${chatter} Only moderators or the streamer can skip songs.`);
@@ -1428,7 +1438,10 @@ document.getElementById('btnSaveCmd').addEventListener('click', () => {
 
 function extractYouTubeVideoId(input) {
     if (!input) return null;
-    const str = input.trim();
+    let str = input.trim();
+    // Strip leading/trailing angle brackets, quotes, brackets, or parentheses
+    str = str.replace(/^[<"'\(\[]+/, '').replace(/[>"'\)\]]+$/, '').trim();
+
     // 11-char direct video ID
     if (/^[a-zA-Z0-9_-]{11}$/.test(str)) {
         return str;
