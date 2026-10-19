@@ -28,8 +28,9 @@ const defaultCommands = {
 let currentProfileId = localStorage.getItem('msp_active_profile');
 let allProfiles = JSON.parse(localStorage.getItem('msp_profiles_list')) || [];
 
-// If no active profile exists or user is unauthenticated, redirect to login page
-if (!currentProfileId || allProfiles.length === 0 || !allProfiles.some(p => p.id === currentProfileId)) {
+// If no active profile exists or user is unauthenticated, redirect to login page (unless an OAuth access token is in the URL hash)
+const hasOAuthHash = window.location.hash && window.location.hash.includes('access_token=');
+if (!hasOAuthHash && (!currentProfileId || allProfiles.length === 0 || !allProfiles.some(p => p.id === currentProfileId))) {
     window.location.href = 'login.html';
 }
 
@@ -1064,24 +1065,32 @@ async function checkOAuthRedirect() {
                 if (valRes.ok) {
                     const valData = await valRes.json();
                     const username = valData.login.toLowerCase();
+                    const userId = valData.user_id;
                     const formattedToken = 'oauth:' + token;
-                    botUsernameInput.value = username;
-                    targetChannelInput.value = username;
-                    oauthTokenInput.value = '';
-                    oauthTokenInput.placeholder = 'oauth:•••••••• (saved for this profile)';
                     
+                    const profileId = 'prof_' + userId;
+                    currentProfileId = profileId;
+                    localStorage.setItem('msp_active_profile', profileId);
+
+                    let pIdx = allProfiles.findIndex(p => p.id === profileId || p.channel === username);
+                    if (pIdx !== -1) {
+                        allProfiles[pIdx].id = profileId;
+                        allProfiles[pIdx].name = username;
+                        allProfiles[pIdx].channel = username;
+                    } else {
+                        allProfiles.push({ id: profileId, name: username, channel: username });
+                    }
+                    localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
+                    if (activeAccountName) activeAccountName.textContent = username;
+
                     localStorage.setItem(getProfileKey('user'), username);
                     localStorage.setItem(getProfileKey('channel'), username);
                     localStorage.setItem(getProfileKey('oauth'), formattedToken);
 
-                    // Update active profile name
-                    const active = allProfiles.find(p => p.id === currentProfileId);
-                    if (active) {
-                        active.name = username;
-                        active.channel = username;
-                        localStorage.setItem('msp_profiles_list', JSON.stringify(allProfiles));
-                        if (activeAccountName) activeAccountName.textContent = username;
-                    }
+                    botUsernameInput.value = username;
+                    targetChannelInput.value = username;
+                    oauthTokenInput.value = '';
+                    oauthTokenInput.placeholder = 'oauth:•••••••• (saved for this profile)';
 
                     connectClientTmi(username, formattedToken, username);
                     return;
