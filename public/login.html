@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MightyStreamPulse</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 460px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 32px 28px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-container::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--hype-gradient);
+        }
+
+        .auth-brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .auth-brand .brand-badge {
+            width: 44px;
+            height: 44px;
+            font-size: 1.4rem;
+        }
+
+        .auth-brand h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .auth-brand .subtext {
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 20px;
+        }
+
+        .auth-tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .auth-tab-btn.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .auth-form-panel {
+            display: none;
+        }
+
+        .auth-form-panel.active {
+            display: block;
+        }
+
+        .auth-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+            line-height: 1.4;
+        }
+
+        .profile-list-item {
+            background: #141418;
+            border: 1px solid var(--border-subtle);
+            padding: 12px 14px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .profile-list-item:hover {
+            border-color: var(--primary);
+            background: #1c1c24;
+            transform: translateX(4px);
+        }
+
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .profile-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .profile-chan {
+            font-size: 0.78rem;
+            color: var(--accent);
+        }
+
+        .empty-profiles {
+            text-align: center;
+            padding: 24px 10px;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+        }
+
+        .empty-profiles i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: #444;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <!-- Logo -->
+        <div class="auth-brand">
+            <div class="brand-badge"><i class="fa-solid fa-bolt"></i></div>
+            <div>
+                <h1>MightyStreamPulse</h1>
+                <div class="subtext">Twitch Commander Pro</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="auth-tabs">
+            <button class="auth-tab-btn active" id="tabLoginBtn"><i class="fa-solid fa-user-check"></i> Sign In</button>
+            <button class="auth-tab-btn" id="tabRegisterBtn"><i class="fa-solid fa-user-plus"></i> New Streamer</button>
+        </div>
+
+        <!-- Panel 1: Select Profile & Sign In -->
+        <div class="auth-form-panel active" id="panelLogin">
+            <p class="auth-desc">Select your saved streamer profile to load your customized action deck, timers, and commands.</p>
+            <div id="profilesContainer">
+                <!-- Dynamically rendered list of profiles -->
+            </div>
+        </div>
+
+        <!-- Panel 2: Register New Profile -->
+        <div class="auth-form-panel" id="panelRegister">
+            <p class="auth-desc">Create your own private streamer profile. Your credentials and buttons will be stored strictly in your browser.</p>
+            <form id="createProfileForm">
+                <div class="form-group">
+                    <label>Profile / Streamer Name</label>
+                    <input type="text" id="regProfileName" placeholder="e.g. MyStreamChannel" required autocomplete="off">
+                    <small>Name used to identify your setup.</small>
+                </div>
+                <div class="form-group">
+                    <label>Twitch Channel Name</label>
+                    <input type="text" id="regChannelName" placeholder="e.g. your_twitch_name" required autocomplete="off">
+                    <small>The Twitch channel your bot will join and send messages to.</small>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full" style="margin-top: 10px;">
+                    <i class="fa-solid fa-arrow-right"></i> Create & Launch Dashboard
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Clean and sanitize channel name input
+        function sanitizeChannel(input) {
+            if (!input) return '';
+            let val = input.trim().toLowerCase();
+            val = val.replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '');
+            val = val.replace(/^#/, '');
+            return val.split('/')[0].split('?')[0];
+        }
+
+        // Tab Switching
+        const tabLoginBtn = document.getElementById('tabLoginBtn');
+        const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+        const panelLogin = document.getElementById('panelLogin');
+        const panelRegister = document.getElementById('panelRegister');
+
+        tabLoginBtn.addEventListener('click', () => {
+            tabLoginBtn.classList.add('active');
+            tabRegisterBtn.classList.remove('active');
+            panelLogin.classList.add('active');
+            panelRegister.classList.remove('active');
+        });
+
+        tabRegisterBtn.addEventListener('click', () => {
+            tabRegisterBtn.classList.add('active');
+            tabLoginBtn.classList.remove('active');
+            panelRegister.classList.add('active');
+            panelLogin.classList.remove('active');
+        });
+
+        // Load Profiles
+        function loadProfiles() {
+            const rawList = localStorage.getItem('msp_profiles_list');
+            const profiles = rawList ? JSON.parse(rawList) : [];
+            const container = document.getElementById('profilesContainer');
+            container.innerHTML = '';
+
+            if (profiles.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-profiles">
+                        <i class="fa-solid fa-user-slash"></i>
+                        No saved profiles found.<br>Click <strong>New Streamer</strong> above to create your profile!
+                    </div>
+                `;
+                // If no profiles, auto-switch to registration tab
+                tabRegisterBtn.click();
+                return;
+            }
+
+            profiles.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'profile-list-item';
+                item.innerHTML = `
+                    <div class="profile-info">
+                        <span class="profile-name"><i class="fa-solid fa-circle-user" style="color: var(--primary); margin-right: 6px;"></i>${escapeHtml(p.name)}</span>
+                        <span class="profile-chan">${p.channel ? '#' + escapeHtml(p.channel) : 'Channel not set'}</span>
+                    </div>
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">
+                        Open <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
+                    </button>
+                `;
+
+                item.addEventListener('click', () => {
+                    localStorage.setItem('msp_active_profile', p.id);
+                    window.location.href = 'index.html';
+                });
+
+                container.appendChild(item);
+            });
+        }
+
+        // Create Profile Submit
+        document.getElementById('createProfileForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('regProfileName').value.trim();
+            const channel = sanitizeChannel(document.getElementById('regChannelName').value);
+
+            if (!name || !channel) {
+                alert('Please provide both your profile name and Twitch channel.');
+                return;
+            }
+
+            const rawList = localStorage.getItem('msp_profiles_list');
+            const profiles = rawList ? JSON.parse(rawList) : [];
+            const newId = 'prof_' + Date.now();
+
+            profiles.push({ id: newId, name, channel });
+            localStorage.setItem('msp_profiles_list', JSON.stringify(profiles));
+            localStorage.setItem('msp_active_profile', newId);
+
+            // Seed initial channel for this profile
+            localStorage.setItem(`msp_${newId}_channel`, channel);
+
+            // Redirect to main commander dashboard
+            window.location.href = 'index.html';
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        loadProfiles();
+    </script>
+</body>
+</html>

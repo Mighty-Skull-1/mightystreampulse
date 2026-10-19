@@ -24,11 +24,14 @@ const defaultCommands = {
     '!game': '🎮 Currently grinding games with chat! Drop suggestions anytime.'
 };
 
-// Multi-Streamer Profile Management System
-let currentProfileId = localStorage.getItem('msp_active_profile') || 'default';
-let allProfiles = JSON.parse(localStorage.getItem('msp_profiles_list')) || [
-    { id: 'default', name: 'My Streamer Profile', channel: '' }
-];
+// Multi-Streamer Profile Authentication Check
+let currentProfileId = localStorage.getItem('msp_active_profile');
+let allProfiles = JSON.parse(localStorage.getItem('msp_profiles_list')) || [];
+
+// If no active profile or empty profile list, redirect directly to the dedicated login page
+if (!currentProfileId || allProfiles.length === 0 || !allProfiles.some(p => p.id === currentProfileId)) {
+    window.location.href = 'login.html';
+}
 
 function getProfileKey(key) {
     return `msp_${currentProfileId}_${key}`;
@@ -967,25 +970,20 @@ function initApp() {
     renderDeck();
     renderTimers(timedAnnouncements);
     renderCommands(customCommands);
-    updateProfilesDropdown();
+
+    const active = allProfiles.find(p => p.id === currentProfileId);
+    if (active) {
+        activeAccountName.textContent = active.name;
+    }
 
     const savedUser = localStorage.getItem(getProfileKey('user')) || '';
     const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
-    const savedChan = localStorage.getItem(getProfileKey('channel')) || '';
+    const savedChan = localStorage.getItem(getProfileKey('channel')) || (active ? active.channel : '');
 
     botUsernameInput.value = savedUser;
     targetChannelInput.value = savedChan;
     oauthTokenInput.value = '';
     oauthTokenInput.placeholder = savedOauth ? 'oauth:•••••••• (saved for this profile)' : 'oauth:••••••••••••••••';
-
-    // If new visitor has no channel configured yet, automatically pop up the Profile/Channel setup modal!
-    if (!savedChan && !localStorage.getItem('msp_has_visited')) {
-        localStorage.setItem('msp_has_visited', 'true');
-        setTimeout(() => {
-            updateProfilesDropdown();
-            accountModal.classList.add('open');
-        }, 400);
-    }
 
     // Auto-connect if credentials exist for this profile
     if (savedUser && savedOauth && savedChan) {
