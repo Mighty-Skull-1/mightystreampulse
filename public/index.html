@@ -374,26 +374,19 @@
                                 <div class="hero-left">
                                     <i class="fa-brands fa-twitch twitch-hero-icon"></i>
                                     <div>
-                                        <h3>1-Click Twitch Verification</h3>
-                                        <p>Authorize securely via Twitch to auto-verify your bot and connect to chat.</p>
+                                        <h3>Twitch Bot Authorization</h3>
+                                        <p>Generate a secure Twitch token to connect your bot account to chat.</p>
                                     </div>
                                 </div>
                                 <a href="https://twitchapps.com/tmi/" target="_blank" class="btn btn-twitch-auth">
-                                    <i class="fa-brands fa-twitch"></i> Connect with Twitch
-                                </a>
-                            </div>
-
-                            <div class="channel-quick-preset">
-                                <span>Default Stream:</span>
-                                <a href="https://www.twitch.tv/mightyttv0" target="_blank" class="channel-pill" id="btnSetMightyTTV">
-                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> mightyttv0
+                                    <i class="fa-brands fa-twitch"></i> Get Twitch Token
                                 </a>
                             </div>
 
                             <div class="form-group">
                                 <label for="botUsername">Twitch Bot Account Name</label>
-                                <input type="text" id="botUsername" placeholder="e.g. mightyttv0 or bot username">
-                                <small>The username of the account that will send chat messages.</small>
+                                <input type="text" id="botUsername" placeholder="e.g. YourBotName or your twitch username">
+                                <small>The username of the account that will post chat messages.</small>
                             </div>
 
                             <div class="form-group">
@@ -562,11 +555,11 @@
                 <!-- Create Profile Form -->
                 <div class="form-group">
                     <label>Profile / Streamer Name</label>
-                    <input type="text" id="newProfileName" placeholder="e.g. MightySkull or PlayerOne">
+                    <input type="text" id="newProfileName" placeholder="e.g. Streamer1 or MainAccount">
                 </div>
                 <div class="form-group">
-                    <label>Twitch Channel Name</label>
-                    <input type="text" id="newProfileChannel" placeholder="e.g. mightyskull">
+                    <label>Twitch Channel Name (Where bot speaks)</label>
+                    <input type="text" id="newProfileChannel" placeholder="e.g. your_channel_name">
                 </div>
                 <button id="btnCreateProfile" class="btn btn-secondary btn-full"><i class="fa-solid fa-plus"></i> Create New Profile</button>
             </div>

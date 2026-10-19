@@ -912,9 +912,19 @@ btnLoadProfile.addEventListener('click', async () => {
     initApp();
 });
 
+// Helper function to extract channel name if user pastes full twitch.tv/username URL
+function sanitizeChannelName(input) {
+    if (!input) return '';
+    let val = input.trim().toLowerCase();
+    val = val.replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '');
+    val = val.replace(/^#/, '');
+    val = val.split('/')[0].split('?')[0];
+    return val;
+}
+
 btnCreateProfile.addEventListener('click', () => {
     const name = newProfileName.value.trim();
-    const chan = newProfileChannel.value.trim().toLowerCase().replace('#', '');
+    const chan = sanitizeChannelName(newProfileChannel.value);
     if (!name) return alert('Please enter a profile name');
 
     const newId = 'prof_' + Date.now();
@@ -934,18 +944,6 @@ btnCreateProfile.addEventListener('click', () => {
     accountModal.classList.remove('open');
     initApp();
 });
-
-// Set Default Channel Preset Click Handler
-const btnSetMightyTTV = document.getElementById('btnSetMightyTTV');
-if (btnSetMightyTTV) {
-    btnSetMightyTTV.addEventListener('click', (e) => {
-        e.preventDefault();
-        targetChannelInput.value = 'mightyttv0';
-        if (!botUsernameInput.value) botUsernameInput.value = 'mightyttv0';
-        localStorage.setItem(getProfileKey('channel'), 'mightyttv0');
-        alert('Channel set to mightyttv0! Make sure your OAuth token is entered and click Connect.');
-    });
-}
 
 // Check URL Hash for Twitch OAuth Redirects (e.g. #access_token=...)
 function checkOAuthRedirect() {
@@ -973,12 +971,21 @@ function initApp() {
 
     const savedUser = localStorage.getItem(getProfileKey('user')) || '';
     const savedOauth = localStorage.getItem(getProfileKey('oauth')) || '';
-    const savedChan = localStorage.getItem(getProfileKey('channel')) || 'mightyttv0';
+    const savedChan = localStorage.getItem(getProfileKey('channel')) || '';
 
     botUsernameInput.value = savedUser;
     targetChannelInput.value = savedChan;
     oauthTokenInput.value = '';
     oauthTokenInput.placeholder = savedOauth ? 'oauth:•••••••• (saved for this profile)' : 'oauth:••••••••••••••••';
+
+    // If new visitor has no channel configured yet, automatically pop up the Profile/Channel setup modal!
+    if (!savedChan && !localStorage.getItem('msp_has_visited')) {
+        localStorage.setItem('msp_has_visited', 'true');
+        setTimeout(() => {
+            updateProfilesDropdown();
+            accountModal.classList.add('open');
+        }, 400);
+    }
 
     // Auto-connect if credentials exist for this profile
     if (savedUser && savedOauth && savedChan) {
