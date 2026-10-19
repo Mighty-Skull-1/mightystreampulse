@@ -354,7 +354,11 @@ function startClientTimers() {
 // Connect Logic (Direct Browser Client Mode)
 async function connectClientTmi(username, oauth, channel) {
     if (clientTmi) {
-        try { await clientTmi.disconnect(); } catch (e) {}
+        try {
+            if (clientTmi.readyState() === 'OPEN') {
+                await clientTmi.disconnect();
+            }
+        } catch (e) {}
         clientTmi = null;
     }
 
@@ -1064,10 +1068,10 @@ async function checkOAuthRedirect() {
         window.history.replaceState(null, null, window.location.pathname);
         if (errType === 'access_denied') {
             window.location.href = 'login.html';
-            return;
+            return true;
         }
         alert(`Twitch Notice: ${errDesc}\n\nPlease verify that your Twitch Developer Console has "${window.location.origin}" in OAuth Redirect URLs.`);
-        return;
+        return true;
     }
 
     if (hash && hash.includes('access_token=')) {
@@ -1109,21 +1113,34 @@ async function checkOAuthRedirect() {
                     oauthTokenInput.value = '';
                     oauthTokenInput.placeholder = 'oauth:•••••••• (saved for this profile)';
 
-                    connectClientTmi(username, formattedToken, username);
-                    return;
+                    loadProfileData();
+                    renderDeck();
+                    renderTimers(timedAnnouncements);
+                    renderCommands(customCommands);
+
+                    await connectClientTmi(username, formattedToken, username);
+                    return true;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error('Validate error:', e);
+            }
 
             oauthTokenInput.value = 'oauth:' + token;
             localStorage.setItem(getProfileKey('oauth'), 'oauth:' + token);
             alert('Twitch Token imported! Click Connect Bot to activate.');
+            return true;
         }
     }
+    return false;
 }
 
 // Load Saved LocalStorage Credentials
-function initApp() {
-    checkOAuthRedirect();
+async function initApp() {
+    const oauthHandled = await checkOAuthRedirect();
+    if (oauthHandled) {
+        return;
+    }
+
     loadProfileData();
     renderDeck();
     renderTimers(timedAnnouncements);
