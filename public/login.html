@@ -451,11 +451,16 @@
         const REDIRECT_URI = window.location.origin;
         document.getElementById('redirectUrlPreview').textContent = REDIRECT_URI;
 
-        const DEFAULT_CLIENT_ID = '8j6lbezh9dakukfeln6kgehqphfchw';
+        const DEFAULT_CLIENT_ID = '0r9wta4lw0nu45hd8avh0tba5adf3z';
 
         // Default or Saved Twitch Client ID
         function getTwitchClientId() {
-            return localStorage.getItem('msp_twitch_client_id') || DEFAULT_CLIENT_ID;
+            const saved = localStorage.getItem('msp_twitch_client_id');
+            if (!saved || saved === '8j6lbezh9dakukfeln6kgehqphfchw') {
+                localStorage.setItem('msp_twitch_client_id', DEFAULT_CLIENT_ID);
+                return DEFAULT_CLIENT_ID;
+            }
+            return saved;
         }
 
         // 1-Click Twitch Login Initiation
