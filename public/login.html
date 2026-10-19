@@ -386,8 +386,31 @@
         <div class="divider-line">MightyStreamPulse</div>
 
         <div class="auth-footer-links">
+            <a class="auth-link" id="btnOpenManualLogin"><i class="fa-solid fa-key"></i> Quick Token Login</a>
             <a class="auth-link" id="btnOpenProfiles"><i class="fa-solid fa-users"></i> Saved Profiles</a>
-            <a class="auth-link" id="btnOpenClientIdModal"><i class="fa-solid fa-gear"></i> Twitch API Settings</a>
+            <a class="auth-link" id="btnOpenClientIdModal"><i class="fa-solid fa-gear"></i> Settings</a>
+        </div>
+    </div>
+
+    <!-- Quick Token Login Modal -->
+    <div class="client-id-modal" id="manualLoginModal">
+        <div class="client-id-box">
+            <h3><i class="fa-solid fa-bolt" style="color: #00f0ff;"></i> Quick Streamer Connect</h3>
+            <p>Connect instantly with your Twitch channel and chat token:</p>
+            
+            <label style="font-size: 0.8rem; font-weight: 700; color: #adadb8; display: block; margin-bottom: 4px;">TWITCH CHANNEL</label>
+            <input type="text" id="manualChannelInput" placeholder="e.g. mightyttv0">
+
+            <label style="font-size: 0.8rem; font-weight: 700; color: #adadb8; display: block; margin-bottom: 4px;">
+                OAUTH TOKEN 
+                <a href="https://twitchapps.com/tmi/" target="_blank" style="color: #8b3dff; float: right; font-weight: normal; text-decoration: underline;">Get Token</a>
+            </label>
+            <input type="password" id="manualOauthInput" placeholder="oauth:••••••••••••••••">
+
+            <div class="client-id-actions">
+                <button class="btn btn-secondary" id="btnCloseManualLogin" style="padding: 8px 16px;">Cancel</button>
+                <button class="btn btn-primary" id="btnSubmitManualLogin" style="padding: 8px 18px; background: #00e676; color: #000; font-weight: 800;">Connect Now</button>
+            </div>
         </div>
     </div>
 
@@ -481,9 +504,22 @@
             startTwitchOAuth(id);
         });
 
-        // Check for Twitch OAuth redirect with #access_token=...
+        // Check for Twitch OAuth redirect with #access_token=... or error
         async function handleOAuthCallback() {
             const hash = window.location.hash;
+            const search = window.location.search;
+
+            // Check for errors returned by Twitch
+            if ((hash && hash.includes('error=')) || (search && search.includes('error='))) {
+                const queryStr = hash ? hash.substring(1) : search.substring(1);
+                const errParams = new URLSearchParams(queryStr);
+                const errType = errParams.get('error');
+                const errDesc = errParams.get('error_description') || errType;
+                alert(`Twitch Notice: ${errDesc}\n\nTip: In your Twitch Developer Console, make sure your Redirect URL is set to:\n${REDIRECT_URI}`);
+                window.history.replaceState(null, null, window.location.pathname);
+                return;
+            }
+
             if (!hash || !hash.includes('access_token=')) return;
 
             const params = new URLSearchParams(hash.substring(1));
@@ -636,6 +672,46 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        // Quick Token Login handlers
+        const manualLoginModal = document.getElementById('manualLoginModal');
+        const manualChannelInput = document.getElementById('manualChannelInput');
+        const manualOauthInput = document.getElementById('manualOauthInput');
+
+        document.getElementById('btnOpenManualLogin').addEventListener('click', () => {
+            manualLoginModal.classList.add('open');
+        });
+        document.getElementById('btnCloseManualLogin').addEventListener('click', () => {
+            manualLoginModal.classList.remove('open');
+        });
+
+        document.getElementById('btnSubmitManualLogin').addEventListener('click', () => {
+            let chan = manualChannelInput.value.trim().toLowerCase().replace('#', '').replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '');
+            let token = manualOauthInput.value.trim();
+
+            if (!chan) return alert('Please enter your Twitch channel name.');
+            if (!token) return alert('Please enter your Twitch OAuth token.');
+            if (!token.startsWith('oauth:')) token = 'oauth:' + token;
+
+            const profileId = 'prof_' + Date.now();
+            const rawList = localStorage.getItem('msp_profiles_list');
+            let profiles = rawList ? JSON.parse(rawList) : [];
+
+            profiles.push({
+                id: profileId,
+                name: chan,
+                channel: chan
+            });
+
+            localStorage.setItem('msp_profiles_list', JSON.stringify(profiles));
+            localStorage.setItem('msp_active_profile', profileId);
+
+            localStorage.setItem(`msp_${profileId}_channel`, chan);
+            localStorage.setItem(`msp_${profileId}_user`, chan);
+            localStorage.setItem(`msp_${profileId}_oauth`, token);
+
+            window.location.href = 'index.html';
+        });
 
         // Run OAuth callback check immediately
         handleOAuthCallback();
