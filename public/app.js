@@ -2870,32 +2870,23 @@ async function checkOAuthRedirect() {
                     localStorage.setItem(getProfileKey('channel'), username);
                     localStorage.setItem(getProfileKey('user_id'), userId);
                     localStorage.setItem(getProfileKey('oauth'), formattedToken);
-                    if (clientId) localStorage.setItem('msp_twitch_client_id', clientId);
+                    if (valData.client_id) localStorage.setItem('msp_twitch_client_id', valData.client_id);
 
                     botUsernameInput.value = username;
                     targetChannelInput.value = username;
                     oauthTokenInput.value = '';
                     oauthTokenInput.placeholder = 'oauth:•••••••• (saved for this profile)';
 
-                    loadProfileData();
-                    renderDeck();
-                    renderTimers(timedAnnouncements);
-                    renderCommands(customCommands);
-                    renderSoundboard();
-                    renderSongQueueUI();
-                    updateNowPlayingUI();
-
-                    await connectClientTmi(username, formattedToken, username);
-                    return true;
+                    // Saved - let initApp load the profile, render everything and auto-connect
+                    return false;
                 }
             } catch (e) {
                 console.error('Validate error:', e);
             }
 
-            oauthTokenInput.value = 'oauth:' + token;
             localStorage.setItem(getProfileKey('oauth'), 'oauth:' + token);
-            alert('Twitch Token imported! Click Connect Bot to activate.');
-            return true;
+            alert('Twitch login saved, but Twitch could not confirm it right now. If the bot does not connect, click "Switch / Exit" and log in again.');
+            return false; // still load the dashboard normally
         }
     }
     return false;
