@@ -252,6 +252,7 @@
             pollWidget.classList.add('active');
         }
 
+        function esc(t){const d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
         // WebSocket Connection to Local Server
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${protocol}//${window.location.host}`);
@@ -270,7 +271,7 @@
                 const tag = data.isReward ? '<span style="color: #ffd700; font-size: 0.75rem; font-weight: 700; margin-right: 6px;"><i class="fa-solid fa-coins"></i> POINTS</span>' : '';
                 card.className = 'chat-card';
                 if (isReward) card.style.cssText = isReward;
-                card.innerHTML = `${tag}<span class="sender" style="color: ${data.color}">${data.displayName}:</span> <span>${data.message}</span>`;
+                card.innerHTML = `${tag}<span class="sender" style="color: ${data.color}">${esc(data.displayName)}:</span> <span>${esc(data.message)}</span>`;
                 chatOverlay.appendChild(card);
                 if (chatOverlay.children.length > 5) {
                     chatOverlay.removeChild(chatOverlay.children[0]);

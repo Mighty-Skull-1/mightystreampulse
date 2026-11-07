@@ -634,16 +634,33 @@ function escapeHtml(text) {
 }
 
 // Client-Side Timers
+// Timers keep a "next due" time per announcement and are checked by the
+// background worker tick, so they survive tab throttling and reconnects.
+let timerNextDue = {};
 function startClientTimers() {
     Object.values(clientTimers).forEach(id => clearInterval(id));
     clientTimers = {};
-
+    const now = Date.now();
+    const live = {};
     timedAnnouncements.forEach(t => {
-        if (t.enabled && clientTmi && clientTmi.readyState() === 'OPEN') {
-            const ms = Math.max(1, t.intervalMinutes) * 60 * 1000;
-            clientTimers[t.id] = setInterval(() => {
-                sendChatMessage(t.message);
-            }, ms);
+        if (!t.enabled) return;
+        const ms = Math.max(1, t.intervalMinutes) * 60 * 1000;
+        live[t.id] = true;
+        if (!timerNextDue[t.id] || timerNextDue[t.id].ms !== ms) {
+            timerNextDue[t.id] = { ms, due: now + ms };
+        }
+    });
+    Object.keys(timerNextDue).forEach(id => { if (!live[id]) delete timerNextDue[id]; });
+}
+function runDueTimers() {
+    if (!clientTmi || typeof clientTmi.readyState !== 'function' || clientTmi.readyState() !== 'OPEN') return;
+    const now = Date.now();
+    timedAnnouncements.forEach(t => {
+        const st = timerNextDue[t.id];
+        if (!t.enabled || !st) return;
+        if (now >= st.due) {
+            st.due = now + st.ms; // never fire a backlog of missed messages
+            sendChatMessage(t.message);
         }
     });
 }
@@ -656,6 +673,11 @@ let userExplicitlyDisconnected = false;
 let keepAliveAudioNode = null;
 let heartbeatWorker = null;
 let watchdogInterval = null;
+let watchdogTickCount = 0;
+let missedPings = 0;
+let reconnectBackoffMs = 2000;
+let nextReconnectAt = 0;
+let connectionGeneration = 0;
 
 // 1. Silent Web Audio Anchor: tells Edge & Chrome that this tab has active media and MUST NOT SLEEP
 function startBackgroundAudioAnchor() {
@@ -691,7 +713,7 @@ function startHeartbeatWorker() {
                     if (!interval) {
                         interval = setInterval(function() {
                             self.postMessage('tick');
-                        }, 12000); // Check every 12 seconds
+                        }, 5000); // tick every 5 seconds
                     }
                 } else if (e.data === 'stop') {
                     if (interval) { clearInterval(interval); interval = null; }
@@ -703,14 +725,16 @@ function startHeartbeatWorker() {
         heartbeatWorker = new Worker(blobUrl);
         heartbeatWorker.onmessage = function(e) {
             if (e.data === 'tick') {
-                runKeepAliveWatchdog();
+                runDueTimers();
+                watchdogTickCount++;
+                if (watchdogTickCount % 3 === 0) runKeepAliveWatchdog();
             }
         };
         heartbeatWorker.postMessage('start');
     } catch (err) {
         console.warn('Web Worker unavailable, falling back to window interval:', err);
         if (!watchdogInterval) {
-            watchdogInterval = setInterval(runKeepAliveWatchdog, 12000);
+            watchdogInterval = setInterval(() => { runDueTimers(); runKeepAliveWatchdog(); }, 10000);
         }
     }
 }
@@ -729,15 +753,44 @@ async function runKeepAliveWatchdog() {
         const state = clientTmi.readyState();
         if (state === 'OPEN' || state === 'CONNECTING') {
             if (state === 'OPEN') {
+                // A socket can look OPEN while actually dead ("Connected" but no chat).
+                // If Twitch stops answering pings, force a fresh connection.
                 try {
-                    if (typeof clientTmi.ping === 'function') clientTmi.ping().catch(() => {});
-                } catch (e) {}
+                    await clientTmi.ping();
+                    missedPings = 0;
+                    reconnectBackoffMs = 2000;
+                    updateStatusUI('connected', savedChan);
+                    return;
+                } catch (e) {
+                    missedPings++;
+                    console.warn('[MightyStreamPulse Shield] Ping missed (' + missedPings + ')');
+                    if (missedPings < 2) return;
+                }
+            } else {
+                return;
             }
-            return;
         }
     }
 
+    if (Date.now() < nextReconnectAt) return;
+    missedPings = 0;
+
+    // Check the token is still valid before hammering Twitch with logins
+    try {
+        const v = await fetch('https://id.twitch.tv/oauth2/validate', {
+            headers: { 'Authorization': 'OAuth ' + savedOauth.replace(/^oauth:/, '') }
+        });
+        if (v.status === 401) {
+            userExplicitlyDisconnected = true;
+            updateStatusUI('disconnected', savedChan);
+            showConnectionBanner('Your Twitch login has expired. Click "Switch / Exit" and log in again to reconnect the bot.');
+            return;
+        }
+    } catch (e) { /* offline - just retry later */ }
+
     console.log('[MightyStreamPulse Shield] Connection dropped. Auto-reviving chat connection...');
+    nextReconnectAt = Date.now() + reconnectBackoffMs;
+    reconnectBackoffMs = Math.min(reconnectBackoffMs * 2, 60000);
     updateStatusUI('connecting', savedChan);
     try {
         await connectClientTmi(savedUser, savedOauth, savedChan, true);
@@ -859,11 +912,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
             skipUpdatingEmotesets: true
         },
         connection: {
-            reconnect: true,
-            maxReconnectAttempts: Infinity,
-            maxReconnectInterval: 10000,
-            reconnectInterval: 2000,
-            reconnectDecay: 1.2,
+            reconnect: false, // the Shield watchdog handles all reconnects
             secure: true
         },
         identity: { username: user, password: token },
@@ -875,7 +924,14 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
         console.log('[MightyStreamPulse] TMI reconnecting...');
     });
 
+    const myGeneration = ++connectionGeneration;
+    const isStale = () => myGeneration !== connectionGeneration;
+
     clientTmi.on('connected', () => {
+        if (isStale()) return;
+        missedPings = 0;
+        reconnectBackoffMs = 2000;
+        hideConnectionBanner();
         updateStatusUI('connected', chan);
         startClientTimers();
         startBackgroundKeepAlive();
@@ -888,11 +944,15 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
     });
 
     clientTmi.on('disconnected', (reason) => {
-        Object.values(clientTimers).forEach(id => clearInterval(id));
+        if (isStale()) return;
+        console.warn('[MightyStreamPulse] Disconnected:', reason);
         if (userExplicitlyDisconnected) {
             updateStatusUI('disconnected', chan);
         } else {
             updateStatusUI('connecting', chan);
+            // Try to come back quickly instead of waiting for the next watchdog tick
+            nextReconnectAt = 0;
+            setTimeout(runKeepAliveWatchdog, 1500);
         }
     });
 
@@ -926,6 +986,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
     });
 
     clientTmi.on('message', async (channelName, tags, message, self) => {
+        if (isStale()) return;
         const chatter = tags['display-name'] || tags.username;
         const chatterLower = (tags.username || tags['display-name'] || '').toLowerCase();
         const botUserLower = (user || '').toLowerCase();
@@ -956,8 +1017,9 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
         const lower = trimmed.toLowerCase();
 
         // 1. Giveaway check
-        if (activeGiveaway && !self && lower === activeGiveaway.keyword.toLowerCase()) {
-            activeGiveaway.entrants.add(chatter);
+        if (activeGiveaway && !self && lower === activeGiveaway.keyword.toLowerCase()
+            && chatterLower !== botUserLower && chatterLower !== chan.toLowerCase()) {
+            activeGiveaway.entrants.add(tags['display-name'] || chatterLower);
             document.getElementById('giveawayEntrantsCount').textContent = activeGiveaway.entrants.size;
         }
 
@@ -973,7 +1035,9 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
 
         // 3. Trivia check
         if (activeTrivia && !activeTrivia.solved && !self) {
-            if (lower.includes(activeTrivia.answer.toLowerCase())) {
+            const ans = activeTrivia.answer.toLowerCase().trim();
+            const norm = lower.replace(/[^a-z0-9 ]/g, '').trim();
+            if (lower === ans || norm === ans.replace(/[^a-z0-9 ]/g, '').trim()) {
                 activeTrivia.solved = true;
                 const winMsg = `🎉 BINGO! @${chatter} got the correct answer: "${activeTrivia.answer}"! Congratulations! 🧠`;
                 await sendChatMessage(winMsg);
@@ -1048,7 +1112,14 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
 
         // 6. Custom Commands
         const cmdKey = trimmed.split(' ')[0].toLowerCase();
+        const isPrivileged = tags.mod || (tags.badges && tags.badges.broadcaster) || chatterLower === chan.toLowerCase();
+        if (!self && cmdKey === '!uptime') {
+            if (!isPrivileged && onCommandCooldown(cmdKey)) return;
+            await sendChatMessage(await getUptimeText(chan));
+            return;
+        }
         if (!self && customCommands && customCommands[cmdKey]) {
+            if (!isPrivileged && onCommandCooldown(cmdKey)) return;
             await sendChatMessage(customCommands[cmdKey]);
         }
     });
@@ -2847,3 +2918,49 @@ window.addEventListener('click', () => {
 }, { once: true });
 
 initApp();
+
+
+// ==========================================
+// Command cooldowns, real uptime, connection banner
+// ==========================================
+const COMMAND_COOLDOWN_MS = 15000;
+const commandLastUsed = {};
+function onCommandCooldown(cmd) {
+    const now = Date.now();
+    if (commandLastUsed[cmd] && now - commandLastUsed[cmd] < COMMAND_COOLDOWN_MS) return true;
+    commandLastUsed[cmd] = now;
+    return false;
+}
+
+async function getUptimeText(channel) {
+    try {
+        const auth = await getHelixAuthContext();
+        const res = await fetch(`https://api.twitch.tv/helix/streams?user_login=${encodeURIComponent(channel)}`, {
+            headers: { 'Client-ID': auth.clientId, 'Authorization': 'Bearer ' + auth.token }
+        });
+        const data = await res.json();
+        const s = data && data.data && data.data[0];
+        if (!s) return `📴 ${channel} isn't live right now.`;
+        const mins = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 60000);
+        const h = Math.floor(mins / 60), m = mins % 60;
+        return `⏱️ ${channel} has been live for ${h ? h + 'h ' : ''}${m}m!`;
+    } catch (e) {
+        return customCommands['!uptime'] || '⏱️ Stream is live!';
+    }
+}
+
+function showConnectionBanner(text) {
+    let b = document.getElementById('mspConnBanner');
+    if (!b) {
+        b = document.createElement('div');
+        b.id = 'mspConnBanner';
+        b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:99999;background:#3a0d16;color:#ffd6dc;border:1px solid #ff4d6d;padding:10px 16px;border-radius:10px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.5)';
+        document.body.appendChild(b);
+    }
+    b.textContent = '⚠️ ' + text;
+    b.style.display = 'block';
+}
+function hideConnectionBanner() {
+    const b = document.getElementById('mspConnBanner');
+    if (b) b.style.display = 'none';
+}
