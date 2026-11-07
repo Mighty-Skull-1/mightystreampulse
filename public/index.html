@@ -73,6 +73,16 @@
                 </div>
             </div>
 
+            <!-- Backup & Restore -->
+            <div class="backup-box">
+                <div class="backup-label"><i class="fa-solid fa-floppy-disk"></i> Backup</div>
+                <div class="backup-actions">
+                    <button id="btnExportBackup" class="btn btn-secondary btn-sm" title="Download your buttons, timers, commands and soundboard"><i class="fa-solid fa-download"></i> Export</button>
+                    <button id="btnImportBackup" class="btn btn-secondary btn-sm" title="Restore from a backup file"><i class="fa-solid fa-upload"></i> Import</button>
+                </div>
+                <input type="file" id="importBackupInput" accept=".json,application/json" hidden>
+            </div>
+
             <!-- Mini Channel Stats Box -->
             <div class="stats-mini-box">
                 <div class="stat-item">
@@ -316,7 +326,7 @@
                                 <i class="fa-solid fa-trash-can mod-icon" style="color: #ef4444;"></i>
                                 <div class="mod-title">Clear Chat</div>
                                 <p>Nukes and wipes all recent messages in the channel.</p>
-                                <button class="btn btn-secondary btn-full"><i class="fa-solid fa-broom"></i> /clear</button>
+                                <button class="btn btn-danger btn-full"><i class="fa-solid fa-broom"></i> Clear Chat</button>
                             </div>
 
                             <div class="mod-card" data-action="emoteonly">

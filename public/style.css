@@ -650,7 +650,7 @@ body {
 
 .action-card .card-desc {
     font-size: 0.78rem;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -1791,3 +1791,50 @@ input:focus, textarea:focus, select:focus {
     color: #00f0ff;
     font-size: 0.74rem;
 }
+
+
+/* ---- Colour-coded deck categories ---- */
+.action-card .card-badge[data-cat="greet"]   { background: rgba(34, 197, 94, 0.15);  color: #4ade80; }
+.action-card .card-badge[data-cat="links"]   { background: rgba(0, 240, 255, 0.12);  color: #22d3ee; }
+.action-card .card-badge[data-cat="hype"]    { background: rgba(255, 45, 149, 0.15); color: #ff5aad; }
+.action-card .card-badge[data-cat="mod"]     { background: rgba(239, 68, 68, 0.15);  color: #f87171; }
+.action-card .card-badge[data-cat="gaming"]  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.action-card .card-badge[data-cat="support"] { background: rgba(145, 70, 255, 0.18); color: #b98cff; }
+
+/* ---- Danger button (Clear Chat) ---- */
+.btn.btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+}
+.btn.btn-danger:hover { background: var(--danger); color: #fff; }
+
+/* ---- Mod Desk ON/OFF state ---- */
+.mod-state-pill {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+    background: #2a2a33;
+    color: var(--text-secondary);
+}
+.mod-state-pill.on { background: rgba(34, 197, 94, 0.18); color: #4ade80; }
+.btn-sub.is-current[data-sub$="_on"]  { background: rgba(34, 197, 94, 0.2); color: #4ade80; border-color: rgba(34, 197, 94, 0.5); }
+.btn-sub.is-current[data-sub$="_off"] { background: #33333d; color: #fff; }
+
+/* ---- Backup box ---- */
+.backup-box {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--bg-surface, #141419);
+}
+.backup-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
+.backup-actions { display: flex; gap: 6px; }
+.backup-actions .btn { flex: 1; justify-content: center; }
+.backup-actions .btn { padding: 6px 8px; font-size: 0.78rem; }

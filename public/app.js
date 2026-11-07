@@ -492,7 +492,19 @@ function updateStatsUI(stats) {
 }
 
 // Stream Deck
+function fixKnownDeckTypos() {
+    let changed = false;
+    deckButtons.forEach(b => {
+        if (b && typeof b.title === 'string' && /^check out mighty merch now its out$/i.test(b.title.trim())) {
+            b.title = 'Mighty Merch Is Out!';
+            changed = true;
+        }
+    });
+    if (changed) localStorage.setItem(getProfileKey('buttons'), JSON.stringify(deckButtons));
+}
+
 function renderDeck() {
+    try { fixKnownDeckTypos(); } catch (e) {}
     deckGrid.innerHTML = '';
     deckButtons.forEach((btn, index) => {
         const card = document.createElement('div');
@@ -508,7 +520,7 @@ function renderDeck() {
             <div class="card-top">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i class="card-icon ${iconClass}"></i>
-                    <span class="card-badge">${escapeHtml(btn.category || 'Chat')}</span>
+                    <span class="card-badge" data-cat="${escapeHtml((btn.category || 'chat').toLowerCase())}">${escapeHtml(btn.category || 'Chat')}</span>
                 </div>
                 <div class="card-actions">
                     <button class="card-btn card-edit" title="Edit Button" data-index="${index}"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -929,6 +941,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
 
     clientTmi.on('connected', () => {
         if (isStale()) return;
+        setTimeout(refreshModState, 1500);
         missedPings = 0;
         reconnectBackoffMs = 2000;
         hideConnectionBanner();
@@ -1602,20 +1615,24 @@ document.querySelectorAll('.mod-card').forEach(card => {
     const action = card.getAttribute('data-action');
     if (action === 'clear') {
         const btn = card.querySelector('button');
-        if (btn) btn.addEventListener('click', () => execModeration('/clear'));
+        if (btn) btn.addEventListener('click', () => {
+            if (confirm('Clear ALL messages in your Twitch chat? This can\'t be undone.')) execModeration('/clear');
+        });
     } else {
         card.querySelectorAll('.btn-sub').forEach(btn => {
             btn.addEventListener('click', () => {
                 const sub = btn.getAttribute('data-sub');
-                if (sub === 'emoteonly_on') execModeration('/emoteonly');
-                else if (sub === 'emoteonly_off') execModeration('/emoteonlyoff');
+                let p = null;
+                if (sub === 'emoteonly_on') p = execModeration('/emoteonly');
+                else if (sub === 'emoteonly_off') p = execModeration('/emoteonlyoff');
                 else if (sub === 'slow_on') {
                     const sec = document.getElementById('slowSecondsInput') ? document.getElementById('slowSecondsInput').value : '30';
-                    execModeration('/slow ' + sec, { seconds: sec });
+                    p = execModeration('/slow ' + sec, { seconds: sec });
                 }
-                else if (sub === 'slow_off') execModeration('/slowoff');
-                else if (sub === 'subscribers_on') execModeration('/subscribers');
-                else if (sub === 'subscribers_off') execModeration('/subscribersoff');
+                else if (sub === 'slow_off') p = execModeration('/slowoff');
+                else if (sub === 'subscribers_on') p = execModeration('/subscribers');
+                else if (sub === 'subscribers_off') p = execModeration('/subscribersoff');
+                if (p && p.then) p.then(() => refreshModState());
             });
         });
     }
@@ -2983,3 +3000,106 @@ function hideConnectionBanner() {
     const b = document.getElementById('mspConnBanner');
     if (b) b.style.display = 'none';
 }
+
+
+// ==========================================
+// Mod Desk live state (shows which modes are ON)
+// ==========================================
+function setModCardState(action, isOn, label) {
+    const card = document.querySelector(`.mod-card[data-action="${action}"]`);
+    if (!card) return;
+    let pill = card.querySelector('.mod-state-pill');
+    if (!pill) {
+        pill = document.createElement('span');
+        pill.className = 'mod-state-pill';
+        const title = card.querySelector('.mod-title');
+        if (title) title.appendChild(pill);
+    }
+    pill.textContent = label || (isOn ? 'ON' : 'OFF');
+    pill.classList.toggle('on', !!isOn);
+    card.querySelectorAll('.btn-sub').forEach(b => {
+        const isOnBtn = /_on$/.test(b.getAttribute('data-sub'));
+        b.classList.toggle('is-current', isOnBtn === !!isOn);
+    });
+}
+
+let modStateBusy = false;
+async function refreshModState() {
+    if (modStateBusy) return;
+    modStateBusy = true;
+    try {
+        const auth = await getHelixAuthContext();
+        if (!auth || !auth.broadcasterId) return;
+        const res = await fetch(`https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}`, {
+            headers: { 'Client-ID': auth.clientId, 'Authorization': 'Bearer ' + auth.token }
+        });
+        if (!res.ok) return;
+        const d = ((await res.json()).data || [])[0];
+        if (!d) return;
+        setModCardState('emoteonly', d.emote_mode);
+        setModCardState('slow', d.slow_mode, d.slow_mode ? `ON · ${d.slow_mode_wait_time}s` : 'OFF');
+        setModCardState('subscribers', d.subscriber_mode);
+    } catch (e) {
+        console.warn('[MightyStreamPulse] Could not read chat settings:', e);
+    } finally {
+        modStateBusy = false;
+    }
+}
+document.querySelectorAll('.nav-btn[data-tab="tab-mod"]').forEach(b => b.addEventListener('click', () => refreshModState()));
+
+// ==========================================
+// Backup & Restore (buttons, timers, commands, soundboard, music settings)
+// Login tokens are never included in the backup file.
+// ==========================================
+const BACKUP_KEYS = ['buttons', 'timers', 'commands', 'soundboard', 'soundboard_vol', 'song_requests_enabled', 'song_volume'];
+
+function exportBackup() {
+    const data = {};
+    BACKUP_KEYS.forEach(k => {
+        const v = localStorage.getItem(getProfileKey(k));
+        if (v !== null) data[k] = v;
+    });
+    const chan = localStorage.getItem(getProfileKey('channel')) || 'profile';
+    const backup = { app: 'MightyStreamPulse', version: 1, exportedAt: new Date().toISOString(), channel: chan, data };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = URL.createObjectURL(blob);
+    a.download = `mightystreampulse-backup-${chan}-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+function importBackupFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+        let backup;
+        try { backup = JSON.parse(reader.result); } catch (e) { return alert('That file isn\'t a valid MightyStreamPulse backup.'); }
+        if (!backup || backup.app !== 'MightyStreamPulse' || typeof backup.data !== 'object') {
+            return alert('That file isn\'t a valid MightyStreamPulse backup.');
+        }
+        const keys = Object.keys(backup.data).filter(k => BACKUP_KEYS.includes(k));
+        if (!keys.length) return alert('That backup is empty.');
+        const when = backup.exportedAt ? new Date(backup.exportedAt).toLocaleString() : 'an unknown date';
+        if (!confirm(`Restore the backup from ${when}?\n\nThis replaces your current buttons, timers, commands and soundboard on this profile.`)) return;
+        keys.forEach(k => localStorage.setItem(getProfileKey(k), String(backup.data[k])));
+        alert('Backup restored! The dashboard will now reload.');
+        location.reload();
+    };
+    reader.readAsText(file);
+}
+
+(function setupBackupUI() {
+    const exp = document.getElementById('btnExportBackup');
+    const imp = document.getElementById('btnImportBackup');
+    const input = document.getElementById('importBackupInput');
+    if (exp) exp.addEventListener('click', exportBackup);
+    if (imp && input) {
+        imp.addEventListener('click', () => input.click());
+        input.addEventListener('change', () => {
+            if (input.files && input.files[0]) importBackupFile(input.files[0]);
+            input.value = '';
+        });
+    }
+})();
