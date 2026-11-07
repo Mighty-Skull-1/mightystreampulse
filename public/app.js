@@ -1182,6 +1182,12 @@ document.getElementById('btnStartPoll').addEventListener('click', async () => {
 });
 
 document.getElementById('btnEndPoll').addEventListener('click', () => {
+    if (activePoll) {
+        const ranked = activePoll.options.map(o => ({ text: o.text, votes: o.voters.size })).sort((x, y) => y.votes - x.votes);
+        const top = ranked[0];
+        const result = top && top.votes > 0 ? `Winner: ${top.text} with ${top.votes} vote${top.votes === 1 ? '' : 's'}!` : 'No votes this time.';
+        sendChatMessage(`📊 POLL ENDED: ${activePoll.question} | ${result}`);
+    }
     activePoll = null;
     document.getElementById('pollLiveDisplay').style.display = 'none';
 });
@@ -1639,16 +1645,38 @@ if (btnExecuteTimeout) {
 }
 
 // OBS Overlay Copy
+function buildOverlayUrl() {
+    const chan = sanitizeChannelName(localStorage.getItem(getProfileKey('channel')) || '');
+    const bot = sanitizeChannelName(localStorage.getItem(getProfileKey('user')) || '');
+    let url = window.location.origin + '/overlay.html';
+    if (chan) {
+        url += '?channel=' + encodeURIComponent(chan);
+        if (bot && bot !== chan) url += '&bot=' + encodeURIComponent(bot);
+    }
+    return url;
+}
+function refreshOverlayUrl() {
+    const el = document.getElementById('overlayUrlInput');
+    if (el) el.value = buildOverlayUrl();
+}
+setTimeout(refreshOverlayUrl, 0);
+setInterval(refreshOverlayUrl, 5000);
+
 document.getElementById('btnCopyOverlay').addEventListener('click', () => {
     const copyText = document.getElementById('overlayUrlInput');
-    copyText.value = window.location.origin + '/overlay.html';
+    copyText.value = buildOverlayUrl();
+    if (!/channel=/.test(copyText.value)) return alert('Connect your Twitch channel first so the overlay link knows which chat to watch.');
     copyText.select();
     navigator.clipboard.writeText(copyText.value);
     alert('OBS Overlay URL copied to clipboard!');
 });
 
-document.getElementById('btnTestObsAlert').addEventListener('click', () => {
-    alert('OBS test alert triggered!');
+document.getElementById('btnTestObsAlert').addEventListener('click', async () => {
+    if (!clientTmi || typeof clientTmi.readyState !== 'function' || clientTmi.readyState() !== 'OPEN') {
+        return alert('Connect the bot to Twitch first, then send the test.');
+    }
+    await sendChatMessage('🔔 MightyStreamPulse OVERLAY TEST ✅');
+    alert('Test sent! A banner and confetti should appear on your OBS overlay within a couple of seconds.');
 });
 
 // Timers Management

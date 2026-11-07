@@ -173,6 +173,12 @@
             from { opacity: 0; transform: scale(0.95); }
             to { opacity: 1; transform: scale(1); }
         }
+        .overlay-setup-hint {
+            display: none; position: fixed; left: 50%; top: 40%; transform: translateX(-50%);
+            background: rgba(20, 14, 36, 0.92); color: #fff; padding: 18px 24px; border-radius: 12px;
+            border: 1px solid #9146ff; font-size: 1.1rem; max-width: 640px; text-align: center;
+        }
+        #confettiCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
     </style>
 </head>
 <body>
@@ -194,7 +200,28 @@
     <!-- On-Screen Chat Stream -->
     <div class="chat-overlay-box" id="chatOverlay"></div>
 
+    <div class="overlay-setup-hint" id="setupHint">
+        MightyStreamPulse overlay: add <b>?channel=yourchannel</b> to this link
+        (copy it from the OBS Overlay Setup page in the dashboard).
+    </div>
+    <canvas id="confettiCanvas"></canvas>
+
+    <script src="tmi.min.js"></script>
     <script>
+        // ============================================================
+        // MightyStreamPulse OBS overlay
+        // Reads Twitch chat directly (anonymous, read-only), so it works
+        // inside OBS from the Netlify site with no local server.
+        // URL options:
+        //   ?channel=mightyttv0   (required) channel to watch
+        //   &bot=botusername      account the dashboard posts as
+        //   &chat=0               hide the on-screen chat feed
+        // ============================================================
+        const params = new URLSearchParams(location.search);
+        const CHANNEL = (params.get('channel') || '').toLowerCase().replace(/^#/, '').trim();
+        const BOT = (params.get('bot') || CHANNEL).toLowerCase().replace(/^#/, '').trim();
+        const SHOW_CHAT = params.get('chat') !== '0';
+
         const alertBox = document.getElementById('alertBox');
         const alertTitle = document.getElementById('alertTitle');
         const alertMsg = document.getElementById('alertMsg');
@@ -204,83 +231,190 @@
         const pollQuestion = document.getElementById('pollQuestion');
         const pollOptionsList = document.getElementById('pollOptionsList');
 
-        let alertTimeout = null;
+        function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
 
+        // ---------- Alerts (queued so they never overwrite each other) ----------
+        const alertQueue = [];
+        let alertShowing = false;
         function showAlert(title, message, type) {
-            alertTitle.textContent = title || 'STREAM ALERT';
-            alertMsg.textContent = message || '';
-
-            if (type === 'giveaway' || type === 'winner') {
-                alertIcon.className = 'fa-solid fa-gift alert-icon';
-            } else if (type === 'poll') {
-                alertIcon.className = 'fa-solid fa-square-poll-vertical alert-icon';
-            } else if (type === 'trivia') {
-                alertIcon.className = 'fa-solid fa-brain alert-icon';
-            } else if (type === 'reward') {
-                alertIcon.className = 'fa-solid fa-coins alert-icon';
-            } else {
-                alertIcon.className = 'fa-solid fa-bolt-lightning alert-icon';
-            }
-
+            alertQueue.push({ title, message, type });
+            if (!alertShowing) nextAlert();
+        }
+        function nextAlert() {
+            const a = alertQueue.shift();
+            if (!a) { alertShowing = false; return; }
+            alertShowing = true;
+            alertTitle.textContent = a.title || 'STREAM ALERT';
+            alertMsg.textContent = a.message || '';
+            const icons = { giveaway: 'fa-gift', winner: 'fa-trophy', poll: 'fa-square-poll-vertical',
+                            trivia: 'fa-brain', reward: 'fa-coins', hype: 'fa-fire' };
+            alertIcon.className = 'fa-solid ' + (icons[a.type] || 'fa-bolt-lightning') + ' alert-icon';
             alertBox.classList.add('show');
-            if (alertTimeout) clearTimeout(alertTimeout);
-            alertTimeout = setTimeout(() => {
+            setTimeout(() => {
                 alertBox.classList.remove('show');
+                setTimeout(nextAlert, 600);
             }, 6000);
         }
 
-        function updatePollUI(question, options) {
-            pollQuestion.textContent = question;
+        // ---------- Poll ----------
+        let poll = null; // { question, options: [{text, voters:Set}] }
+        let pollHideTimer = null;
+        function renderPoll() {
+            if (!poll) return;
+            pollQuestion.textContent = poll.question;
             pollOptionsList.innerHTML = '';
-            const totalVotes = options.reduce((sum, o) => sum + o.votes, 0) || 1;
-
-            options.forEach((opt, idx) => {
-                const pct = Math.round((opt.votes / totalVotes) * 100);
-                const optDiv = document.createElement('div');
-                optDiv.className = 'poll-opt';
-                optDiv.innerHTML = `
+            const counts = poll.options.map(o => o.voters.size);
+            const total = counts.reduce((a, b) => a + b, 0) || 1;
+            poll.options.forEach((opt, idx) => {
+                const pct = Math.round((counts[idx] / total) * 100);
+                const d = document.createElement('div');
+                d.className = 'poll-opt';
+                d.innerHTML = `
                     <div class="poll-opt-label">
-                        <span>[${idx + 1}] ${opt.text}</span>
-                        <span>${opt.votes} (${pct}%)</span>
+                        <span>[${idx + 1}] ${esc(opt.text)}</span>
+                        <span>${counts[idx]} (${pct}%)</span>
                     </div>
-                    <div class="poll-bar-bg">
-                        <div class="poll-bar-fill" style="width: ${pct}%"></div>
-                    </div>
-                `;
-                pollOptionsList.appendChild(optDiv);
+                    <div class="poll-bar-bg"><div class="poll-bar-fill" style="width:${pct}%"></div></div>`;
+                pollOptionsList.appendChild(d);
             });
             pollWidget.classList.add('active');
         }
+        function startPoll(question, optionTexts) {
+            if (pollHideTimer) { clearTimeout(pollHideTimer); pollHideTimer = null; }
+            poll = { question, options: optionTexts.map(t => ({ text: t, voters: new Set() })) };
+            renderPoll();
+            showAlert('NEW POLL', question + ' (type the number in chat to vote!)', 'poll');
+        }
+        function endPoll() {
+            if (!poll) return;
+            const best = poll.options.reduce((b, o) => (o.voters.size > b.voters.size ? o : b), poll.options[0]);
+            if (best && best.voters.size > 0) showAlert('POLL RESULT', `${best.text} wins with ${best.voters.size} vote${best.voters.size === 1 ? '' : 's'}!`, 'poll');
+            const ended = poll;
+            poll = null;
+            // leave the final results on screen briefly
+            pollHideTimer = setTimeout(() => { if (!poll) pollWidget.classList.remove('active'); }, 8000);
+            return ended;
+        }
+        function parsePollMessage(msg) {
+            // "📊 POLL: question | Vote with a number: [1] A [2] B"
+            const m = msg.match(/POLL:\s*(.+?)\s*\|\s*Vote with a number:\s*(.+)$/i);
+            if (!m) return null;
+            const opts = [];
+            const re = /\[(\d+)\]\s*([^\[]+)/g;
+            let r;
+            while ((r = re.exec(m[2])) !== null) opts.push(r[2].trim());
+            return opts.length ? { question: m[1], options: opts } : null;
+        }
 
-        function esc(t){const d=document.createElement('div');d.textContent=t==null?'':String(t);return d.innerHTML;}
-        // WebSocket Connection to Local Server
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}`);
+        // ---------- Chat feed ----------
+        function showChat(name, color, message, isReward) {
+            if (!SHOW_CHAT) return;
+            const card = document.createElement('div');
+            card.className = 'chat-card';
+            if (isReward) card.style.cssText = 'border-left: 4px solid #ffd700; background: rgba(30, 25, 10, 0.9);';
+            const tag = isReward ? '<span style="color:#ffd700;font-size:.75rem;font-weight:700;margin-right:6px;"><i class="fa-solid fa-coins"></i> POINTS</span>' : '';
+            card.innerHTML = `${tag}<span class="sender" style="color:${esc(color)}">${esc(name)}:</span> <span>${esc(message)}</span>`;
+            chatOverlay.appendChild(card);
+            while (chatOverlay.children.length > 5) chatOverlay.removeChild(chatOverlay.firstChild);
+            setTimeout(() => { if (card.parentNode) card.remove(); }, 10000);
+        }
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'obs_alert') {
-                showAlert(data.title, data.message, data.type);
-            } else if (data.type === 'poll_update') {
-                updatePollUI(data.question, data.options);
-            } else if (data.type === 'poll_end') {
-                pollWidget.classList.remove('active');
-            } else if (data.type === 'chat_message') {
-                const card = document.createElement('div');
-                const isReward = data.isReward ? ' border-left: 4px solid #ffd700; background: rgba(30, 25, 10, 0.9);' : '';
-                const tag = data.isReward ? '<span style="color: #ffd700; font-size: 0.75rem; font-weight: 700; margin-right: 6px;"><i class="fa-solid fa-coins"></i> POINTS</span>' : '';
-                card.className = 'chat-card';
-                if (isReward) card.style.cssText = isReward;
-                card.innerHTML = `${tag}<span class="sender" style="color: ${data.color}">${esc(data.displayName)}:</span> <span>${esc(data.message)}</span>`;
-                chatOverlay.appendChild(card);
-                if (chatOverlay.children.length > 5) {
-                    chatOverlay.removeChild(chatOverlay.children[0]);
-                }
-                setTimeout(() => {
-                    if (card.parentNode) card.remove();
-                }, 10000);
+        // ---------- Confetti ----------
+        const cv = document.getElementById('confettiCanvas');
+        const cx = cv.getContext('2d');
+        let pieces = [], confettiRunning = false;
+        function resizeCanvas() { cv.width = innerWidth; cv.height = innerHeight; }
+        addEventListener('resize', resizeCanvas); resizeCanvas();
+        function confetti() {
+            const colors = ['#9146ff', '#00f0ff', '#ff2d95', '#ffd700', '#22c55e'];
+            for (let i = 0; i < 180; i++) {
+                pieces.push({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
+                    w: 6 + Math.random() * 6, h: 8 + Math.random() * 8, vy: 3 + Math.random() * 4,
+                    vx: -2 + Math.random() * 4, r: Math.random() * 6, vr: -0.2 + Math.random() * 0.4,
+                    c: colors[i % colors.length] });
             }
-        };
+            if (!confettiRunning) { confettiRunning = true; requestAnimationFrame(drawConfetti); }
+        }
+        function drawConfetti() {
+            cx.clearRect(0, 0, cv.width, cv.height);
+            pieces.forEach(p => {
+                p.x += p.vx; p.y += p.vy; p.r += p.vr;
+                cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r);
+                cx.fillStyle = p.c; cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); cx.restore();
+            });
+            pieces = pieces.filter(p => p.y < cv.height + 40);
+            if (pieces.length) requestAnimationFrame(drawConfetti);
+            else { confettiRunning = false; cx.clearRect(0, 0, cv.width, cv.height); }
+        }
+
+        // ---------- React to what the dashboard bot posts ----------
+        function handleBotMessage(msg) {
+            if (/POLL ENDED/i.test(msg)) { endPoll(); return; }
+            const p = parsePollMessage(msg);
+            if (p) { startPoll(p.question, p.options); return; }
+
+            let m;
+            if ((m = msg.match(/WINNER IS\.*\s*@?(\w+)/i))) {
+                showAlert('GIVEAWAY WINNER', `Congratulations @${m[1]}!`, 'winner'); confetti(); return;
+            }
+            if (/GIVEAWAY STARTED/i.test(msg)) {
+                const k = msg.match(/Type "([^"]+)"/i);
+                showAlert('GIVEAWAY!', k ? `Type ${k[1]} in chat to enter!` : 'Enter in chat now!', 'giveaway'); return;
+            }
+            if ((m = msg.match(/TRIVIA TIME!\s*"(.+)"/i))) { showAlert('CHAT TRIVIA', m[1], 'trivia'); return; }
+            if ((m = msg.match(/BINGO!\s*@?(\w+).*?answer:\s*"([^"]+)"/i))) {
+                showAlert('TRIVIA WINNER', `@${m[1]} got it: ${m[2]}`, 'trivia'); confetti(); return;
+            }
+            if (/HYPE TRAIN|CELEBRATION ACTIVATED/i.test(msg)) { showAlert('HYPE!', "Let's go chat! 🔥", 'hype'); confetti(); return; }
+            if (/OVERLAY TEST/i.test(msg)) { showAlert('OVERLAY CONNECTED', 'Your MightyStreamPulse overlay is working ✅', 'alert'); confetti(); return; }
+        }
+
+        function handleViewerMessage(user, msg) {
+            if (!poll) return;
+            const n = parseInt(msg.trim(), 10);
+            if (String(n) !== msg.trim() || n < 1 || n > poll.options.length) return;
+            poll.options.forEach(o => o.voters.delete(user));
+            poll.options[n - 1].voters.add(user);
+            renderPoll();
+        }
+
+        // ---------- Connect ----------
+        if (!CHANNEL) {
+            document.getElementById('setupHint').style.display = 'block';
+        } else if (window.tmi && tmi.Client) {
+            const client = new tmi.Client({
+                options: { skipUpdatingEmotesets: true },
+                connection: { reconnect: true, secure: true, maxReconnectInterval: 15000 },
+                channels: [CHANNEL] // no identity = anonymous read-only
+            });
+            client.on('message', (ch, tags, message) => {
+                const login = (tags.username || '').toLowerCase();
+                const name = tags['display-name'] || login;
+                const isTrusted = login === BOT || login === CHANNEL;
+                const isReward = !!tags['custom-reward-id'] || tags['msg-id'] === 'highlighted-message';
+                if (isTrusted) handleBotMessage(message);
+                if (!isTrusted || login === CHANNEL) handleViewerMessage(login, message);
+                if (isReward) showAlert('CHANNEL POINTS', `${name}: ${message}`, 'reward');
+                showChat(name, tags.color || '#9146FF', message, isReward);
+            });
+            client.on('raided', (ch, user, viewers) => { showAlert('RAID!', `${user} is raiding with ${viewers} viewers!`, 'hype'); confetti(); });
+            client.on('subscription', (ch, user) => showAlert('NEW SUB', `${user} just subscribed!`, 'hype'));
+            client.on('resub', (ch, user, months) => showAlert('RESUB', `${user} resubscribed for ${months} months!`, 'hype'));
+            client.on('subgift', (ch, user, streak, recipient) => showAlert('GIFTED SUB', `${user} gifted a sub to ${recipient}!`, 'hype'));
+            client.on('cheer', (ch, tags) => showAlert('CHEER', `${tags['display-name'] || tags.username} cheered ${tags.bits} bits!`, 'hype'));
+            client.connect().catch(e => console.warn('Overlay chat connect failed', e));
+        }
+
+        // ---------- Local server mode (node server.js on your own PC) ----------
+        if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+            try {
+                const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`);
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'obs_alert') showAlert(data.title, data.message, data.alertType);
+                };
+            } catch (e) {}
+        }
     </script>
 </body>
 </html>
