@@ -940,6 +940,8 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
     const myGeneration = ++connectionGeneration;
     const isStale = () => myGeneration !== connectionGeneration;
 
+    attachSupportAlertHandlers(clientTmi, isStale);
+
     clientTmi.on('connected', () => {
         if (isStale()) return;
         setTimeout(refreshModState, 1500);
@@ -1670,6 +1672,12 @@ function buildOverlayUrl() {
     if (chan) {
         url += '?channel=' + encodeURIComponent(chan);
         if (bot && bot !== chan) url += '&bot=' + encodeURIComponent(bot);
+        try {
+            const al = loadAlertSettings();
+            if (!al.overlaySound) url += '&sound=0';
+            else if (Math.abs(al.overlayVolume - 0.8) > 0.001) url += '&volume=' + al.overlayVolume.toFixed(2);
+            if (al.overlayTts) url += '&tts=1';
+        } catch (e) {}
         try {
             const t = loadTheme();
             if (t.primary.toLowerCase() !== DEFAULT_THEME.primary || t.accent.toLowerCase() !== DEFAULT_THEME.accent) {
@@ -3058,7 +3066,7 @@ document.querySelectorAll('.nav-btn[data-tab="tab-mod"]').forEach(b => b.addEven
 // Backup & Restore (buttons, timers, commands, soundboard, music settings)
 // Login tokens are never included in the backup file.
 // ==========================================
-const BACKUP_KEYS = ['buttons', 'timers', 'commands', 'soundboard', 'soundboard_vol', 'song_requests_enabled', 'song_volume', 'theme'];
+const BACKUP_KEYS = ['buttons', 'timers', 'commands', 'soundboard', 'soundboard_vol', 'song_requests_enabled', 'song_volume', 'theme', 'alerts'];
 
 function exportBackup() {
     const data = {};
@@ -3208,4 +3216,146 @@ function syncThemeControls(t) {
     const reset = document.getElementById('btnResetTheme');
     if (reset) reset.addEventListener('click', () => saveTheme(Object.assign({}, DEFAULT_THEME)));
     try { applyTheme(loadTheme()); } catch (e) {}
+})();
+
+
+// ==========================================
+// Sub / bits / gift / raid alerts on the dashboard
+// ==========================================
+const DEFAULT_ALERTS = { dashSound: true, dashVolume: 0.8, overlaySound: true, overlayVolume: 0.8, overlayTts: false };
+function loadAlertSettings() {
+    let a = null;
+    try { a = JSON.parse(localStorage.getItem(getProfileKey('alerts'))); } catch (e) {}
+    return Object.assign({}, DEFAULT_ALERTS, a || {});
+}
+function saveAlertSettings(a) {
+    localStorage.setItem(getProfileKey('alerts'), JSON.stringify(a));
+    try { refreshOverlayUrl(); } catch (e) {}
+}
+
+const SUPPORT_SOUNDS = { sub: 'victory', bits: 'coin', gift: 'hype', raid: 'airhorn' };
+const SUPPORT_ICONS = { sub: 'fa-star', bits: 'fa-gem', gift: 'fa-gift', raid: 'fa-people-group' };
+
+function dashboardSupportAlert(kind, title, text) {
+    const al = loadAlertSettings();
+    if (al.dashSound) {
+        playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume);
+        if (kind !== 'bits') setTimeout(() => playSynthesizedSound('applause', al.dashVolume * 0.7), 700);
+    }
+    try { triggerConfetti(); } catch (e) {}
+
+    // Toast
+    let wrap = document.getElementById('supportToasts');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'supportToasts';
+        document.body.appendChild(wrap);
+    }
+    const t = document.createElement('div');
+    t.className = 'support-toast';
+    t.innerHTML = `<i class="fa-solid ${SUPPORT_ICONS[kind] || 'fa-star'}"></i><div><b>${escapeHtml(title)}</b><span>${escapeHtml(text)}</span></div>`;
+    wrap.appendChild(t);
+    setTimeout(() => t.classList.add('out'), 9000);
+    setTimeout(() => t.remove(), 9600);
+
+    // Highlight in the chat panel
+    try {
+        const emptyState = chatFeed.querySelector('.empty-state');
+        if (emptyState) emptyState.remove();
+        const row = document.createElement('div');
+        row.className = 'chat-message-row is-support';
+        row.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> <i class="fa-solid ${SUPPORT_ICONS[kind] || 'fa-star'}"></i> <b>${escapeHtml(title)}</b> ${escapeHtml(text)}`;
+        chatFeed.appendChild(row);
+        chatFeed.scrollTop = chatFeed.scrollHeight;
+    } catch (e) {}
+
+    // Keep a list of supporters this session
+    try { addRecentSupporter(kind, title, text); } catch (e) {}
+}
+
+let recentSupport = [];
+function addRecentSupporter(kind, title, text) {
+    recentSupport.unshift({ kind, title, text, time: new Date().toLocaleTimeString() });
+    recentSupport = recentSupport.slice(0, 25);
+    const list = document.getElementById('recentSupportList');
+    if (!list) return;
+    list.innerHTML = recentSupport.map(r =>
+        `<div class="recent-support-row"><i class="fa-solid ${SUPPORT_ICONS[r.kind] || 'fa-star'}"></i><span class="t">${escapeHtml(r.time)}</span><b>${escapeHtml(r.title)}</b><span>${escapeHtml(r.text)}</span></div>`
+    ).join('');
+}
+
+function attachSupportAlertHandlers(client, isStale) {
+    const name = (tags, fallback) => (tags && tags['display-name']) || fallback;
+    const tier = (methods) => {
+        const p = methods && methods.plan;
+        if (!p) return '';
+        if (/prime/i.test(p)) return ' with Prime';
+        if (p === '2000') return ' (Tier 2)';
+        if (p === '3000') return ' (Tier 3)';
+        return '';
+    };
+    const giftBombs = {};
+    const on = (ev, fn) => client.on(ev, (...args) => { if (!isStale()) fn(...args); });
+
+    on('subscription', (ch, user, methods, msg, tags) => dashboardSupportAlert('sub', 'NEW SUB', `${name(tags, user)} subscribed${tier(methods)}!`));
+    on('resub', (ch, user, m, msg, tags, methods) => {
+        const months = parseInt((tags && tags['msg-param-cumulative-months']) || m || 0, 10);
+        dashboardSupportAlert('sub', 'RESUB', `${name(tags, user)} resubscribed${months ? ' for ' + months + ' months' : ''}${tier(methods)}!`);
+    });
+    on('submysterygift', (ch, user, count, methods, tags) => {
+        const key = (user || '').toLowerCase();
+        giftBombs[key] = (giftBombs[key] || 0) + Number(count || 0);
+        setTimeout(() => { delete giftBombs[key]; }, 20000);
+        dashboardSupportAlert('gift', 'GIFT BOMB', `${name(tags, user)} gifted ${count} subs!`);
+    });
+    on('subgift', (ch, user, streak, recipient, methods, tags) => {
+        const key = (user || '').toLowerCase();
+        if (giftBombs[key] > 0) { giftBombs[key]--; return; }
+        dashboardSupportAlert('gift', 'GIFTED SUB', `${name(tags, user)} gifted a sub to ${recipient}!`);
+    });
+    on('anonsubgift', (ch, streak, recipient) => dashboardSupportAlert('gift', 'GIFTED SUB', `Anonymous gifted a sub to ${recipient}!`));
+    on('anonsubmysterygift', (ch, count) => dashboardSupportAlert('gift', 'GIFT BOMB', `Anonymous gifted ${count} subs!`));
+    on('cheer', (ch, tags) => dashboardSupportAlert('bits', 'BITS', `${name(tags, tags.username)} cheered ${tags.bits} bits!`));
+    on('raided', (ch, user, viewers) => dashboardSupportAlert('raid', 'RAID', `${user} is raiding with ${viewers} viewers!`));
+}
+
+(function setupAlertSettingsUI() {
+    const al = loadAlertSettings();
+    const $ = id => document.getElementById(id);
+    if (!$('alertDashSound')) return;
+    $('alertDashSound').checked = al.dashSound;
+    $('alertDashVolume').value = Math.round(al.dashVolume * 100);
+    $('alertOverlaySound').checked = al.overlaySound;
+    $('alertOverlayVolume').value = Math.round(al.overlayVolume * 100);
+    $('alertOverlayTts').checked = al.overlayTts;
+    const save = () => saveAlertSettings({
+        dashSound: $('alertDashSound').checked,
+        dashVolume: $('alertDashVolume').value / 100,
+        overlaySound: $('alertOverlaySound').checked,
+        overlayVolume: $('alertOverlayVolume').value / 100,
+        overlayTts: $('alertOverlayTts').checked
+    });
+    ['alertDashSound', 'alertOverlaySound', 'alertOverlayTts'].forEach(id => $(id).addEventListener('change', save));
+    ['alertDashVolume', 'alertOverlayVolume'].forEach(id => $(id).addEventListener('change', save));
+
+    const tests = {
+        btnTestSub:  ['sub',  'NEW SUB',   'TestViewer subscribed!',               'SUB'],
+        btnTestBits: ['bits', 'BITS',      'TestViewer cheered 500 bits!',         'BITS'],
+        btnTestGift: ['gift', 'GIFT BOMB', 'TestViewer gifted 5 subs!',            'GIFT'],
+        btnTestRaid: ['raid', 'RAID',      'TestStreamer is raiding with 42 viewers!', 'RAID']
+    };
+    Object.entries(tests).forEach(([id, t]) => {
+        const b = $(id);
+        if (!b) return;
+        b.addEventListener('click', async () => {
+            dashboardSupportAlert(t[0], t[1], t[2]);
+            const toOverlay = $('alertTestOverlay') && $('alertTestOverlay').checked;
+            if (toOverlay) {
+                if (!clientTmi || typeof clientTmi.readyState !== 'function' || clientTmi.readyState() !== 'OPEN') {
+                    return alert('Connect the bot to Twitch first to test on the OBS overlay.');
+                }
+                await sendChatMessage(`🔔 MightyStreamPulse OVERLAY TEST ${t[3]}`);
+            }
+        });
+    });
 })();

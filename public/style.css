@@ -1857,3 +1857,30 @@ input:focus, textarea:focus, select:focus {
 .theme-custom-row label { display: flex; flex-direction: column; gap: 6px; font-size: .8rem; color: var(--text-secondary); }
 .theme-custom-row input[type=color] { width: 64px; height: 40px; border: 1px solid var(--border-subtle); border-radius: 8px; background: transparent; padding: 2px; cursor: pointer; }
 .theme-custom-row select { background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 9px 10px; }
+
+
+/* ---- Sub & bits alerts ---- */
+#supportToasts { position: fixed; top: 80px; right: 380px; z-index: 99998; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.support-toast {
+    display: flex; align-items: center; gap: 14px; min-width: 300px; max-width: 420px;
+    background: var(--bg-card); border: 2px solid var(--primary); border-radius: 14px; padding: 14px 18px;
+    box-shadow: 0 10px 30px rgba(var(--primary-rgb), .45); animation: toastIn .45s cubic-bezier(.175,.885,.32,1.275);
+    transition: opacity .5s, transform .5s;
+}
+.support-toast.out { opacity: 0; transform: translateX(40px); }
+.support-toast i { font-size: 1.8rem; color: var(--accent); }
+.support-toast b { display: block; font-size: .75rem; letter-spacing: 2px; color: var(--accent); }
+.support-toast span { font-weight: 700; color: var(--text-primary); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(60px) scale(.9); } to { opacity: 1; transform: none; } }
+.chat-message-row.is-support { background: rgba(var(--primary-rgb), .16); border-left: 3px solid var(--accent); border-radius: 6px; padding: 6px 8px; }
+.chat-message-row.is-support i { color: var(--accent); margin: 0 4px; }
+.alert-test-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.alert-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .9rem; color: var(--text-primary); cursor: pointer; }
+.alert-range { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: .85rem; color: var(--text-secondary); }
+.alert-range input { width: 220px; accent-color: var(--primary); }
+.recent-support-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 280px; overflow-y: auto; }
+.recent-support-row { display: flex; align-items: center; gap: 10px; font-size: .88rem; padding: 6px 8px; border-radius: 8px; background: var(--bg-base); }
+.recent-support-row i { color: var(--accent); width: 18px; text-align: center; }
+.recent-support-row .t { color: var(--text-muted); font-size: .75rem; }
+.recent-support-row b { color: var(--accent); font-size: .72rem; letter-spacing: 1px; }
+@media (max-width: 1100px) { #supportToasts { right: 16px; } }

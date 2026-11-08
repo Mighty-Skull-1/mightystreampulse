@@ -43,6 +43,7 @@
                 <button class="nav-btn" data-tab="tab-timers"><i class="fa-solid fa-clock"></i> Timed Announcements</button>
                 <button class="nav-btn" data-tab="tab-commands"><i class="fa-solid fa-terminal"></i> Bot Chat Commands</button>
                 <button class="nav-btn" data-tab="tab-overlay"><i class="fa-solid fa-video"></i> OBS Overlay Setup</button>
+                <button class="nav-btn" data-tab="tab-alerts"><i class="fa-solid fa-bell"></i> Sub &amp; Bits Alerts</button>
                 <button class="nav-btn" data-tab="tab-theme"><i class="fa-solid fa-palette"></i> Theme</button>
             </nav>
 
@@ -506,6 +507,7 @@
                                     <li>Name it <code>MightyStreamPulse Overlay</code>.</li>
                                     <li>Paste the URL above into the <strong>URL</strong> field.</li>
                                     <li>Set Width to <code>1920</code> and Height to <code>1080</code> (or your stream canvas size).</li>
+                                    <li>Tick <strong>"Control audio via OBS"</strong> so alert sounds go out on your stream.</li>
                                     <li>Check <strong>"Shutdown source when not visible"</strong> and click <strong>OK</strong>!</li>
                                 </ol>
                             </div>
@@ -515,6 +517,49 @@
                                 <p style="font-size: 0.85rem; color: #888; margin-bottom: 10px;">Posts a short test message in your chat. The overlay picks it up and shows a banner with confetti:</p>
                                 <button id="btnTestObsAlert" class="btn btn-secondary"><i class="fa-solid fa-bullhorn"></i> Send Test Banner Alert</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-alerts">
+                    <div class="panel-inner settings-max-width">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Sub &amp; Bits Alerts</h2>
+                                <p>Big on-screen alerts with sound when someone subs, gifts subs, cheers bits or raids you. Your dashboard plays a sound too, so you never miss one.</p>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3><i class="fa-solid fa-flask" style="color: var(--accent);"></i> Test your alerts</h3>
+                            <div class="alert-test-row">
+                                <button id="btnTestSub" class="btn btn-secondary"><i class="fa-solid fa-star"></i> Test Sub</button>
+                                <button id="btnTestBits" class="btn btn-secondary"><i class="fa-solid fa-gem"></i> Test Bits</button>
+                                <button id="btnTestGift" class="btn btn-secondary"><i class="fa-solid fa-gift"></i> Test Gift Bomb</button>
+                                <button id="btnTestRaid" class="btn btn-secondary"><i class="fa-solid fa-people-group"></i> Test Raid</button>
+                            </div>
+                            <label class="alert-check"><input type="checkbox" id="alertTestOverlay"> Also show the test on my OBS overlay (posts a short test message in chat)</label>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 16px;">
+                            <h3><i class="fa-solid fa-headphones" style="color: var(--primary);"></i> What you hear on the dashboard</h3>
+                            <label class="alert-check"><input type="checkbox" id="alertDashSound"> Play a sound on the dashboard</label>
+                            <label class="alert-range">Volume <input type="range" id="alertDashVolume" min="0" max="100"></label>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 16px;">
+                            <h3><i class="fa-solid fa-display" style="color: var(--primary);"></i> What viewers see and hear on stream</h3>
+                            <label class="alert-check"><input type="checkbox" id="alertOverlaySound"> Play alert sounds on the overlay</label>
+                            <label class="alert-range">Volume <input type="range" id="alertOverlayVolume" min="0" max="100"></label>
+                            <label class="alert-check"><input type="checkbox" id="alertOverlayTts"> Read sub and cheer messages out loud</label>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 10px;">
+                                After changing these, copy your overlay link again from <strong>OBS Overlay Setup</strong>. In OBS, tick <strong>"Control audio via OBS"</strong> on the browser source so viewers hear the sounds.
+                            </p>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 16px;">
+                            <h3><i class="fa-solid fa-heart" style="color: #ff5aad;"></i> Supporters this session</h3>
+                            <div id="recentSupportList" class="recent-support-list"><p style="color: var(--text-secondary); font-size: 0.85rem;">No subs or bits yet this session.</p></div>
                         </div>
                     </div>
                 </div>
