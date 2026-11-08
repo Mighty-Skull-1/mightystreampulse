@@ -43,6 +43,7 @@
                 <button class="nav-btn" data-tab="tab-timers"><i class="fa-solid fa-clock"></i> Timed Announcements</button>
                 <button class="nav-btn" data-tab="tab-commands"><i class="fa-solid fa-terminal"></i> Bot Chat Commands</button>
                 <button class="nav-btn" data-tab="tab-overlay"><i class="fa-solid fa-video"></i> OBS Overlay Setup</button>
+                <button class="nav-btn" data-tab="tab-theme"><i class="fa-solid fa-palette"></i> Theme</button>
             </nav>
 
             <!-- TTS Voice Toggle -->
@@ -159,7 +160,7 @@
                         <div class="interactive-grid">
                             <!-- Live Chat Polls -->
                             <div class="card-box">
-                                <h3><i class="fa-solid fa-chart-pie" style="color: #00f0ff;"></i> Live Chat Poll</h3>
+                                <h3><i class="fa-solid fa-chart-pie" style="color: var(--accent);"></i> Live Chat Poll</h3>
                                 <p class="card-sub">Viewers vote live by simply typing 1, 2, 3 in chat!</p>
                                 <div class="form-group">
                                     <label>Question</label>
@@ -188,7 +189,7 @@
                                     <input type="text" id="giveawayKeyword" value="!win">
                                 </div>
                                 <div class="giveaway-status">
-                                    <span>Entrants: <strong id="giveawayEntrantsCount" style="color: #00f0ff;">0</strong></span>
+                                    <span>Entrants: <strong id="giveawayEntrantsCount" style="color: var(--accent);">0</strong></span>
                                 </div>
                                 <div class="btn-row">
                                     <button id="btnStartGiveaway" class="btn btn-primary"><i class="fa-solid fa-bullhorn"></i> Start Giveaway</button>
@@ -217,7 +218,7 @@
 
                             <!-- Magic 8-Ball Info -->
                             <div class="card-box">
-                                <h3><i class="fa-solid fa-bowling-ball" style="color: #9146ff;"></i> Magic 8-Ball</h3>
+                                <h3><i class="fa-solid fa-bowling-ball" style="color: var(--primary);"></i> Magic 8-Ball</h3>
                                 <p class="card-sub">Always active! Viewers can type <code>!8ball [question]</code> in chat anytime to ask the mystical 8-ball fortunes!</p>
                             </div>
                         </div>
@@ -229,7 +230,7 @@
                     <div class="panel-inner">
                         <div class="section-banner">
                             <div>
-                                <h2><i class="fa-solid fa-music" style="color: #9146ff;"></i> YouTube Song Requests & Jukebox</h2>
+                                <h2><i class="fa-solid fa-music" style="color: var(--primary);"></i> YouTube Song Requests & Jukebox</h2>
                                 <p>Live stream music player. Chatters can request songs via <code>!song [link]</code> or <code>!sr [link]</code>!</p>
                             </div>
                             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -259,7 +260,7 @@
                                     <div class="np-badge">NOW PLAYING</div>
                                     <div class="np-details">
                                         <div class="np-title" id="npTitle">No song currently playing</div>
-                                        <div class="np-sub"><span id="npAuthor">YouTube</span> &bull; <span id="npRequester" style="color: #00f0ff;">Waiting for requests...</span></div>
+                                        <div class="np-sub"><span id="npAuthor">YouTube</span> &bull; <span id="npRequester" style="color: var(--accent);">Waiting for requests...</span></div>
                                     </div>
                                 </div>
 
@@ -278,7 +279,7 @@
 
                                 <!-- Manual Add Song Card -->
                                 <div class="manual-add-card">
-                                    <h4><i class="fa-solid fa-plus-circle" style="color: #00f0ff;"></i> Streamer Quick-Queue</h4>
+                                    <h4><i class="fa-solid fa-plus-circle" style="color: var(--accent);"></i> Streamer Quick-Queue</h4>
                                     <div class="manual-add-row">
                                         <input type="text" id="manualSongInput" placeholder="Paste YouTube link (e.g. https://youtu.be/...) or video ID">
                                         <button id="btnManualAddSong" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Queue</button>
@@ -340,7 +341,7 @@
                             </div>
 
                             <div class="mod-card" data-action="slow">
-                                <i class="fa-solid fa-gauge-simple-high mod-icon" style="color: #00f0ff;"></i>
+                                <i class="fa-solid fa-gauge-simple-high mod-icon" style="color: var(--accent);"></i>
                                 <div class="mod-title">Slow Mode</div>
                                 <p>Limit how often viewers can post.</p>
                                 <div style="margin-bottom: 8px;">
@@ -359,7 +360,7 @@
                             </div>
 
                             <div class="mod-card" data-action="subscribers">
-                                <i class="fa-solid fa-star mod-icon" style="color: #9146ff;"></i>
+                                <i class="fa-solid fa-star mod-icon" style="color: var(--primary);"></i>
                                 <div class="mod-title">Sub-Only Chat</div>
                                 <p>Restricts chat strictly to subscribers and VIPs.</p>
                                 <div class="btn-group">
@@ -446,6 +447,42 @@
                 </div>
 
                 <!-- Tab 6: OBS Overlay Setup -->
+                <div class="tab-content" id="tab-theme">
+                    <div class="panel-inner settings-max-width">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Your Theme</h2>
+                                <p>Pick your channel colours. Each profile keeps its own theme, and your OBS overlay matches it.</p>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3><i class="fa-solid fa-swatchbook" style="color: var(--primary);"></i> Presets</h3>
+                            <div class="theme-grid" id="themePresetGrid"></div>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 16px;">
+                            <h3><i class="fa-solid fa-sliders" style="color: var(--accent);"></i> Custom</h3>
+                            <div class="theme-custom-row">
+                                <label>Main colour <input type="color" id="themePrimaryInput" value="#9146ff"></label>
+                                <label>Highlight colour <input type="color" id="themeAccentInput" value="#00f0ff"></label>
+                                <label>Background
+                                    <select id="themeBgSelect">
+                                        <option value="charcoal">Charcoal</option>
+                                        <option value="midnight">Midnight Blue</option>
+                                        <option value="black">Pure Black</option>
+                                        <option value="plum">Deep Plum</option>
+                                    </select>
+                                </label>
+                                <button id="btnResetTheme" class="btn btn-secondary"><i class="fa-solid fa-rotate-left"></i> Reset to default</button>
+                            </div>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 14px;">
+                                After changing your theme, copy your overlay link again from <strong>OBS Overlay Setup</strong> so the overlay uses the new colours.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="tab-content" id="tab-overlay">
                     <div class="panel-inner settings-max-width">
                         <div class="section-banner">
@@ -456,7 +493,7 @@
                         </div>
 
                         <div class="settings-card">
-                            <h3 style="margin-bottom: 12px;"><i class="fa-solid fa-display" style="color: #9146ff;"></i> Browser Source URL</h3>
+                            <h3 style="margin-bottom: 12px;"><i class="fa-solid fa-display" style="color: var(--primary);"></i> Browser Source URL</h3>
                             <div class="copy-url-row">
                                 <input type="text" id="overlayUrlInput" readonly value="Connect your channel to get your overlay link">
                                 <button id="btnCopyOverlay" class="btn btn-primary"><i class="fa-solid fa-copy"></i> Copy</button>
@@ -630,7 +667,7 @@
                     <div class="form-group" id="sbGroupUpload" style="display: none;">
                         <label>Upload Audio File (.mp3, .wav, .ogg, .m4a)</label>
                         <input type="file" id="sbFileInput" accept="audio/*" style="font-size: 0.85rem;">
-                        <span id="sbUploadStatus" style="font-size: 0.75rem; color: #00f0ff; display: block; margin-top: 4px;"></span>
+                        <span id="sbUploadStatus" style="font-size: 0.75rem; color: var(--accent); display: block; margin-top: 4px;"></span>
                     </div>
 
                     <!-- URL Option -->

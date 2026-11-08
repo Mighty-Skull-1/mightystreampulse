@@ -6,6 +6,7 @@
     <title>MightyStreamPulse - OBS Studio Overlay</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
+        :root { --primary: var(--primary); --accent: var(--accent); --primary-rgb: 145, 70, 255; }
         * {
             box-sizing: border-box;
             margin: 0;
@@ -32,8 +33,8 @@
             align-items: center;
             gap: 16px;
             background: rgba(18, 18, 24, 0.92);
-            border: 2px solid #9146ff;
-            box-shadow: 0 10px 40px rgba(145, 70, 255, 0.5);
+            border: 2px solid var(--primary);
+            box-shadow: 0 10px 40px rgba(var(--primary-rgb), 0.5);
             backdrop-filter: blur(8px);
             padding: 16px 28px;
             border-radius: 16px;
@@ -47,7 +48,7 @@
 
         .alert-icon {
             font-size: 2.5rem;
-            color: #00f0ff;
+            color: var(--accent);
             animation: bounce 1s infinite alternate;
         }
 
@@ -61,7 +62,7 @@
             color: #fff;
             text-transform: uppercase;
             letter-spacing: 1px;
-            background: linear-gradient(90deg, #ff007f, #9146ff, #00f0ff);
+            background: linear-gradient(90deg, #ff007f, var(--primary), var(--accent));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -87,7 +88,7 @@
 
         .chat-card {
             background: rgba(15, 15, 20, 0.85);
-            border-left: 4px solid #9146ff;
+            border-left: 4px solid var(--primary);
             border-radius: 8px;
             padding: 10px 14px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
@@ -164,7 +165,7 @@
 
         .poll-bar-fill {
             height: 100%;
-            background: linear-gradient(90deg, #9146ff, #00f0ff);
+            background: linear-gradient(90deg, var(--primary), var(--accent));
             width: 0%;
             transition: width 0.3s ease;
         }
@@ -176,7 +177,7 @@
         .overlay-setup-hint {
             display: none; position: fixed; left: 50%; top: 40%; transform: translateX(-50%);
             background: rgba(20, 14, 36, 0.92); color: #fff; padding: 18px 24px; border-radius: 12px;
-            border: 1px solid #9146ff; font-size: 1.1rem; max-width: 640px; text-align: center;
+            border: 1px solid var(--primary); font-size: 1.1rem; max-width: 640px; text-align: center;
         }
         #confettiCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
     </style>
@@ -193,7 +194,7 @@
 
     <!-- Live Poll Widget -->
     <div class="poll-widget" id="pollWidget">
-        <div class="poll-title"><i class="fa-solid fa-chart-simple" style="color: #00f0ff;"></i> <span id="pollQuestion">Chat Poll</span></div>
+        <div class="poll-title"><i class="fa-solid fa-chart-simple" style="color: var(--accent);"></i> <span id="pollQuestion">Chat Poll</span></div>
         <div id="pollOptionsList"></div>
     </div>
 
@@ -221,6 +222,20 @@
         const CHANNEL = (params.get('channel') || '').toLowerCase().replace(/^#/, '').trim();
         const BOT = (params.get('bot') || CHANNEL).toLowerCase().replace(/^#/, '').trim();
         const SHOW_CHAT = params.get('chat') !== '0';
+
+        // Streamer theme colours from the link (?primary=hex&accent=hex)
+        const THEME = { primary: '#9146ff', accent: '#00f0ff' };
+        ['primary', 'accent'].forEach(k => {
+            const v = (params.get(k) || '').replace('#', '');
+            if (/^[0-9a-f]{6}$/i.test(v)) THEME[k] = '#' + v;
+        });
+        (function applyOverlayTheme() {
+            const r = document.documentElement.style;
+            r.setProperty('--primary', THEME.primary);
+            r.setProperty('--accent', THEME.accent);
+            const n = parseInt(THEME.primary.slice(1), 16);
+            r.setProperty('--primary-rgb', [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(', '));
+        })();
 
         const alertBox = document.getElementById('alertBox');
         const alertTitle = document.getElementById('alertTitle');
@@ -326,7 +341,7 @@
         function resizeCanvas() { cv.width = innerWidth; cv.height = innerHeight; }
         addEventListener('resize', resizeCanvas); resizeCanvas();
         function confetti() {
-            const colors = ['#9146ff', '#00f0ff', '#ff2d95', '#ffd700', '#22c55e'];
+            const colors = [THEME.primary, THEME.accent, '#ff2d95', '#ffd700', '#ffffff'];
             for (let i = 0; i < 180; i++) {
                 pieces.push({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5,
                     w: 6 + Math.random() * 6, h: 8 + Math.random() * 8, vy: 3 + Math.random() * 4,

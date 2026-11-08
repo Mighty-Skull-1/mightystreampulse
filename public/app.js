@@ -62,6 +62,7 @@ function loadProfileData() {
     songQueue = JSON.parse(localStorage.getItem(getProfileKey('song_queue'))) || [];
     songRequestsEnabled = localStorage.getItem(getProfileKey('song_requests_enabled')) !== 'false';
     songPlayerVolume = parseInt(localStorage.getItem(getProfileKey('song_volume')) || '80', 10);
+    try { applyTheme(loadTheme()); } catch (e) {}
 }
 
 // State
@@ -1669,6 +1670,12 @@ function buildOverlayUrl() {
     if (chan) {
         url += '?channel=' + encodeURIComponent(chan);
         if (bot && bot !== chan) url += '&bot=' + encodeURIComponent(bot);
+        try {
+            const t = loadTheme();
+            if (t.primary.toLowerCase() !== DEFAULT_THEME.primary || t.accent.toLowerCase() !== DEFAULT_THEME.accent) {
+                url += '&primary=' + t.primary.replace('#', '') + '&accent=' + t.accent.replace('#', '');
+            }
+        } catch (e) {}
     }
     return url;
 }
@@ -2123,7 +2130,7 @@ function renderSongQueueUI() {
                 <div class="queue-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
                 <div class="queue-meta">
                     <span>${escapeHtml(song.author || 'YouTube')}</span> &bull; 
-                    <span style="color: #00f0ff;">@${escapeHtml(song.requestedBy)}</span>
+                    <span style="color: var(--accent);">@${escapeHtml(song.requestedBy)}</span>
                 </div>
             </div>
             <div class="queue-actions">
@@ -3051,7 +3058,7 @@ document.querySelectorAll('.nav-btn[data-tab="tab-mod"]').forEach(b => b.addEven
 // Backup & Restore (buttons, timers, commands, soundboard, music settings)
 // Login tokens are never included in the backup file.
 // ==========================================
-const BACKUP_KEYS = ['buttons', 'timers', 'commands', 'soundboard', 'soundboard_vol', 'song_requests_enabled', 'song_volume'];
+const BACKUP_KEYS = ['buttons', 'timers', 'commands', 'soundboard', 'soundboard_vol', 'song_requests_enabled', 'song_volume', 'theme'];
 
 function exportBackup() {
     const data = {};
@@ -3102,4 +3109,103 @@ function importBackupFile(file) {
             input.value = '';
         });
     }
+})();
+
+
+// ==========================================
+// Per-profile themes
+// ==========================================
+const DEFAULT_THEME = { primary: '#9146ff', accent: '#00f0ff', bg: 'charcoal' };
+const THEME_PRESETS = [
+    { name: 'Mighty Purple', primary: '#9146ff', accent: '#00f0ff', bg: 'charcoal' },
+    { name: 'Crimson Rage',  primary: '#e11d48', accent: '#fbbf24', bg: 'black' },
+    { name: 'Ocean Wave',    primary: '#0ea5e9', accent: '#22d3ee', bg: 'midnight' },
+    { name: 'Toxic Green',   primary: '#16a34a', accent: '#a3e635', bg: 'black' },
+    { name: 'Sunset',        primary: '#f97316', accent: '#f472b6', bg: 'plum' },
+    { name: 'Pink Neon',     primary: '#ec4899', accent: '#a78bfa', bg: 'plum' },
+    { name: 'Royal Gold',    primary: '#ca8a04', accent: '#fde047', bg: 'black' },
+    { name: 'Ice Blue',      primary: '#3b82f6', accent: '#e0f2fe', bg: 'midnight' }
+];
+const THEME_BACKGROUNDS = {
+    charcoal: { base: '#09090b', surface: '#121215', card: '#18181c', cardHover: '#222228', border: '#27272f', borderBright: '#3f3f4e' },
+    midnight: { base: '#070b16', surface: '#0d1324', card: '#121a30', cardHover: '#19233d', border: '#1f2a44', borderBright: '#33415f' },
+    black:    { base: '#000000', surface: '#0a0a0a', card: '#111111', cardHover: '#1a1a1a', border: '#222222', borderBright: '#3a3a3a' },
+    plum:     { base: '#0d0710', surface: '#150c1a', card: '#1c1022', cardHover: '#26162e', border: '#2e1c38', borderBright: '#4a2e5a' }
+};
+
+function hexToRgb(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function darken(hex, amt) {
+    const rgb = hexToRgb(hex); if (!rgb) return hex;
+    return '#' + rgb.map(v => Math.max(0, Math.round(v * (1 - amt))).toString(16).padStart(2, '0')).join('');
+}
+function loadTheme() {
+    let t = null;
+    try { t = JSON.parse(localStorage.getItem(getProfileKey('theme'))); } catch (e) {}
+    t = Object.assign({}, DEFAULT_THEME, t || {});
+    if (!hexToRgb(t.primary)) t.primary = DEFAULT_THEME.primary;
+    if (!hexToRgb(t.accent)) t.accent = DEFAULT_THEME.accent;
+    if (!THEME_BACKGROUNDS[t.bg]) t.bg = DEFAULT_THEME.bg;
+    return t;
+}
+function applyTheme(t) {
+    const r = document.documentElement.style;
+    r.setProperty('--primary', t.primary);
+    r.setProperty('--primary-hover', darken(t.primary, 0.18));
+    r.setProperty('--primary-rgb', hexToRgb(t.primary).join(', '));
+    r.setProperty('--accent', t.accent);
+    r.setProperty('--accent-rgb', hexToRgb(t.accent).join(', '));
+    const bg = THEME_BACKGROUNDS[t.bg];
+    r.setProperty('--bg-base', bg.base);
+    r.setProperty('--bg-surface', bg.surface);
+    r.setProperty('--bg-card', bg.card);
+    r.setProperty('--bg-card-hover', bg.cardHover);
+    r.setProperty('--border-subtle', bg.border);
+    r.setProperty('--border-bright', bg.borderBright);
+    syncThemeControls(t);
+}
+function saveTheme(t) {
+    localStorage.setItem(getProfileKey('theme'), JSON.stringify(t));
+    applyTheme(t);
+    try { refreshOverlayUrl(); } catch (e) {}
+}
+function syncThemeControls(t) {
+    const p = document.getElementById('themePrimaryInput');
+    const a = document.getElementById('themeAccentInput');
+    const b = document.getElementById('themeBgSelect');
+    if (p) p.value = t.primary;
+    if (a) a.value = t.accent;
+    if (b) b.value = t.bg;
+    document.querySelectorAll('.theme-swatch').forEach(el => {
+        el.classList.toggle('selected',
+            el.dataset.primary === t.primary.toLowerCase() && el.dataset.accent === t.accent.toLowerCase() && el.dataset.bg === t.bg);
+    });
+}
+(function setupThemeUI() {
+    const grid = document.getElementById('themePresetGrid');
+    if (grid) {
+        THEME_PRESETS.forEach(p => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'theme-swatch';
+            b.dataset.primary = p.primary; b.dataset.accent = p.accent; b.dataset.bg = p.bg;
+            b.innerHTML = `<div class="dots"><span style="background:${p.primary}"></span><span style="background:${p.accent}"></span><span style="background:${THEME_BACKGROUNDS[p.bg].card}"></span></div>${escapeHtml(p.name)}`;
+            b.addEventListener('click', () => saveTheme({ primary: p.primary, accent: p.accent, bg: p.bg }));
+            grid.appendChild(b);
+        });
+    }
+    const p = document.getElementById('themePrimaryInput');
+    const a = document.getElementById('themeAccentInput');
+    const bg = document.getElementById('themeBgSelect');
+    const onCustom = () => saveTheme({ primary: p.value, accent: a.value, bg: bg.value });
+    if (p) p.addEventListener('input', onCustom);
+    if (a) a.addEventListener('input', onCustom);
+    if (bg) bg.addEventListener('change', onCustom);
+    const reset = document.getElementById('btnResetTheme');
+    if (reset) reset.addEventListener('click', () => saveTheme(Object.assign({}, DEFAULT_THEME)));
+    try { applyTheme(loadTheme()); } catch (e) {}
 })();
