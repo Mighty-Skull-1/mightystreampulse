@@ -1884,3 +1884,15 @@ input:focus, textarea:focus, select:focus {
 .recent-support-row .t { color: var(--text-muted); font-size: .75rem; }
 .recent-support-row b { color: var(--accent); font-size: .72rem; letter-spacing: 1px; }
 @media (max-width: 1100px) { #supportToasts { right: 16px; } }
+
+.alert-sound-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.alert-sound-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.alert-sound-row .lbl { font-weight: 600; font-size: .9rem; }
+.alert-sound-row .lbl i { color: var(--accent); width: 18px; }
+.alert-sound-row select, .alert-sound-row input {
+    background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-subtle);
+    border-radius: 8px; padding: 8px 10px; min-width: 0;
+}
+.alert-sound-row input { grid-column: 2 / 3; }
+.alert-sound-row input + button { grid-column: 3; }
+@media (max-width: 640px) { .alert-sound-row { grid-template-columns: 1fr auto; } .alert-sound-row .lbl { grid-column: 1 / -1; } }

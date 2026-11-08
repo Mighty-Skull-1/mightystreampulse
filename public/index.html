@@ -542,6 +542,37 @@
                         </div>
 
                         <div class="settings-card" style="margin-top: 16px;">
+                            <h3><i class="fa-solid fa-music" style="color: var(--accent);"></i> Alert sounds</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">Pick a sound for each alert. Use a built-in sound, a voice clip hosted on the site, or a direct link to your own .mp3.</p>
+                            <div class="alert-sound-list">
+                                <div class="alert-sound-row">
+                                    <span class="lbl"><i class="fa-solid fa-star"></i> Subs</span>
+                                    <select id="alertSoundSel_sub"></select>
+                                    <input type="url" id="alertSoundUrl_sub" placeholder="https://… link to an .mp3" style="display:none">
+                                    <button type="button" id="alertSoundPreview_sub" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
+                                </div>
+                                <div class="alert-sound-row">
+                                    <span class="lbl"><i class="fa-solid fa-gem"></i> Bits</span>
+                                    <select id="alertSoundSel_bits"></select>
+                                    <input type="url" id="alertSoundUrl_bits" placeholder="https://… link to an .mp3" style="display:none">
+                                    <button type="button" id="alertSoundPreview_bits" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
+                                </div>
+                                <div class="alert-sound-row">
+                                    <span class="lbl"><i class="fa-solid fa-gift"></i> Gifted subs</span>
+                                    <select id="alertSoundSel_gift"></select>
+                                    <input type="url" id="alertSoundUrl_gift" placeholder="https://… link to an .mp3" style="display:none">
+                                    <button type="button" id="alertSoundPreview_gift" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
+                                </div>
+                                <div class="alert-sound-row">
+                                    <span class="lbl"><i class="fa-solid fa-people-group"></i> Raids</span>
+                                    <select id="alertSoundSel_raid"></select>
+                                    <input type="url" id="alertSoundUrl_raid" placeholder="https://… link to an .mp3" style="display:none">
+                                    <button type="button" id="alertSoundPreview_raid" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 16px;">
                             <h3><i class="fa-solid fa-headphones" style="color: var(--primary);"></i> What you hear on the dashboard</h3>
                             <label class="alert-check"><input type="checkbox" id="alertDashSound"> Play a sound on the dashboard</label>
                             <label class="alert-range">Volume <input type="range" id="alertDashVolume" min="0" max="100"></label>

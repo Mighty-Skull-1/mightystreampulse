@@ -314,8 +314,30 @@
             o.connect(g); g.connect(actx.destination);
             o.start(actx.currentTime + start); o.stop(actx.currentTime + start + dur + 0.05);
         }
-        function playAlertSound(kind) {
-            if (!SOUND_ON) return;
+        // Custom clip per alert type: &snd_sub=<url or /sounds/file.mp3>
+        const CUSTOM_SOUNDS = {};
+        ['sub', 'bits', 'gift', 'raid'].forEach(k => {
+            const v = params.get('snd_' + k);
+            if (v && /^(https:\/\/|\/sounds\/)[^\s"'<>]+$/i.test(v)) CUSTOM_SOUNDS[k] = v;
+        });
+        // Preload so the clip starts instantly
+        Object.values(CUSTOM_SOUNDS).forEach(u => { try { const a = new Audio(u); a.preload = 'auto'; } catch (e) {} });
+
+        function playAlertSound(kind, done) {
+            if (!SOUND_ON) { if (done) done(0); return; }
+            if (CUSTOM_SOUNDS[kind]) {
+                try {
+                    const a = new Audio(CUSTOM_SOUNDS[kind]);
+                    a.volume = VOLUME;
+                    a.onended = () => done && done(0);
+                    a.play().catch(() => { playSynth(kind); if (done) done(1400); });
+                    return;
+                } catch (e) {}
+            }
+            playSynth(kind);
+            if (done) done(1400);
+        }
+        function playSynth(kind) {
             try {
                 actx = actx || new (window.AudioContext || window.webkitAudioContext)();
                 if (actx.state === 'suspended') actx.resume();
@@ -352,10 +374,10 @@
             document.getElementById('supportMsg').textContent = a.message ? '“' + a.message + '”' : '';
             const box = document.getElementById('supportAlert');
             box.classList.add('show');
-            playAlertSound(a.kind);
             confetti();
             const hold = a.message ? 9000 : 7000;
-            setTimeout(() => speak(a.message), 1400);
+            // read the viewer's message once the alert sound has finished
+            playAlertSound(a.kind, (wait) => setTimeout(() => speak(a.message), wait));
             setTimeout(() => { box.classList.remove('show'); setTimeout(nextAlert, 700); }, hold);
         }
         function tierText(plan) {

@@ -1677,6 +1677,9 @@ function buildOverlayUrl() {
             if (!al.overlaySound) url += '&sound=0';
             else if (Math.abs(al.overlayVolume - 0.8) > 0.001) url += '&volume=' + al.overlayVolume.toFixed(2);
             if (al.overlayTts) url += '&tts=1';
+            Object.entries(al.sounds || {}).forEach(([k, v]) => {
+                if (isValidSoundUrl(v)) url += '&snd_' + k + '=' + encodeURIComponent(v.trim());
+            });
         } catch (e) {}
         try {
             const t = loadTheme();
@@ -3222,11 +3225,21 @@ function syncThemeControls(t) {
 // ==========================================
 // Sub / bits / gift / raid alerts on the dashboard
 // ==========================================
-const DEFAULT_ALERTS = { dashSound: true, dashVolume: 0.8, overlaySound: true, overlayVolume: 0.8, overlayTts: false };
+const DEFAULT_ALERTS = { dashSound: true, dashVolume: 0.8, overlaySound: true, overlayVolume: 0.8, overlayTts: false,
+                         sounds: { sub: '', bits: '', gift: '', raid: '' } };
+// Clips hosted on the site itself (public/sounds). Add more files there and list them here.
+const SOUND_LIBRARY = [
+    { id: '/sounds/mighty-thanks.mp3', name: 'Mighty voice: "Thanks!"' }
+];
+function isValidSoundUrl(u) {
+    return typeof u === 'string' && /^(https:\/\/|\/sounds\/)[^\s"'<>]+$/i.test(u.trim());
+}
 function loadAlertSettings() {
     let a = null;
     try { a = JSON.parse(localStorage.getItem(getProfileKey('alerts'))); } catch (e) {}
-    return Object.assign({}, DEFAULT_ALERTS, a || {});
+    const merged = Object.assign({}, DEFAULT_ALERTS, a || {});
+    merged.sounds = Object.assign({}, DEFAULT_ALERTS.sounds, (a && a.sounds) || {});
+    return merged;
 }
 function saveAlertSettings(a) {
     localStorage.setItem(getProfileKey('alerts'), JSON.stringify(a));
@@ -3239,8 +3252,13 @@ const SUPPORT_ICONS = { sub: 'fa-star', bits: 'fa-gem', gift: 'fa-gift', raid: '
 function dashboardSupportAlert(kind, title, text) {
     const al = loadAlertSettings();
     if (al.dashSound) {
-        playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume);
-        if (kind !== 'bits') setTimeout(() => playSynthesizedSound('applause', al.dashVolume * 0.7), 700);
+        const custom = al.sounds && al.sounds[kind];
+        if (isValidSoundUrl(custom)) {
+            playAlertClip(custom, al.dashVolume, () => playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume));
+        } else {
+            playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume);
+            if (kind !== 'bits') setTimeout(() => playSynthesizedSound('applause', al.dashVolume * 0.7), 700);
+        }
     }
     try { triggerConfetti(); } catch (e) {}
 
@@ -3271,6 +3289,14 @@ function dashboardSupportAlert(kind, title, text) {
 
     // Keep a list of supporters this session
     try { addRecentSupporter(kind, title, text); } catch (e) {}
+}
+
+function playAlertClip(url, volume, onFail) {
+    try {
+        const a = new Audio(url.trim());
+        a.volume = Math.max(0, Math.min(1, volume));
+        a.play().catch(() => onFail && onFail());
+    } catch (e) { if (onFail) onFail(); }
 }
 
 let recentSupport = [];
@@ -3328,12 +3354,46 @@ function attachSupportAlertHandlers(client, isStale) {
     $('alertOverlaySound').checked = al.overlaySound;
     $('alertOverlayVolume').value = Math.round(al.overlayVolume * 100);
     $('alertOverlayTts').checked = al.overlayTts;
+    const KINDS = ['sub', 'bits', 'gift', 'raid'];
+    // Build the per-alert sound pickers
+    KINDS.forEach(k => {
+        const sel = $('alertSoundSel_' + k), inp = $('alertSoundUrl_' + k), prev = $('alertSoundPreview_' + k);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Built-in sound</option>' +
+            SOUND_LIBRARY.map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join('') +
+            '<option value="__custom">My own link…</option>';
+        const cur = (al.sounds && al.sounds[k]) || '';
+        if (!cur) sel.value = '';
+        else if (SOUND_LIBRARY.some(x => x.id === cur)) sel.value = cur;
+        else { sel.value = '__custom'; inp.value = cur; }
+        inp.style.display = sel.value === '__custom' ? '' : 'none';
+        sel.addEventListener('change', () => { inp.style.display = sel.value === '__custom' ? '' : 'none'; save(); });
+        inp.addEventListener('change', () => {
+            if (inp.value.trim() && !isValidSoundUrl(inp.value)) {
+                alert('That link needs to start with https:// and point straight to an audio file (e.g. .mp3).');
+            }
+            save();
+        });
+        prev.addEventListener('click', () => {
+            const v = soundValue(k);
+            const vol = $('alertDashVolume').value / 100;
+            if (v) playAlertClip(v, vol, () => alert("Couldn't play that sound. Check the link opens an audio file directly."));
+            else playSynthesizedSound(SUPPORT_SOUNDS[k], vol);
+        });
+    });
+    function soundValue(k) {
+        const sel = $('alertSoundSel_' + k), inp = $('alertSoundUrl_' + k);
+        if (!sel || !sel.value) return '';
+        const v = sel.value === '__custom' ? inp.value.trim() : sel.value;
+        return isValidSoundUrl(v) ? v : '';
+    }
     const save = () => saveAlertSettings({
         dashSound: $('alertDashSound').checked,
         dashVolume: $('alertDashVolume').value / 100,
         overlaySound: $('alertOverlaySound').checked,
         overlayVolume: $('alertOverlayVolume').value / 100,
-        overlayTts: $('alertOverlayTts').checked
+        overlayTts: $('alertOverlayTts').checked,
+        sounds: Object.fromEntries(KINDS.map(k => [k, soundValue(k)]))
     });
     ['alertDashSound', 'alertOverlaySound', 'alertOverlayTts'].forEach(id => $(id).addEventListener('change', save));
     ['alertDashVolume', 'alertOverlayVolume'].forEach(id => $(id).addEventListener('change', save));
