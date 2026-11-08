@@ -3227,21 +3227,62 @@ function syncThemeControls(t) {
 // ==========================================
 const DEFAULT_ALERTS = { dashSound: true, dashVolume: 0.8, overlaySound: true, overlayVolume: 0.8, overlayTts: false,
                          sounds: { sub: '', bits: '', gift: '', raid: '' } };
-// Clips hosted on the site itself (public/sounds). Add more files there and list them here.
-// `owners` = the only channels that can see and use the clip. Leave it out to share a clip with everyone.
-const SOUND_LIBRARY = [
-    { id: '/sounds/mighty-thanks.mp3', name: 'Custom voice: "Thanks!"', owners: ['mightyttv0'] }
-];
-function soundLibraryForCurrentProfile() {
-    const chan = (localStorage.getItem(getProfileKey('channel')) || '').toLowerCase().replace('#', '');
-    return SOUND_LIBRARY.filter(x => !x.owners || x.owners.includes(chan));
+// Each streamer's own uploaded clips (stored on Netlify, tied to their Twitch login)
+let mySounds = [];   // [{ id, name, url }]
+const SOUND_API = '/.netlify/functions/sounds';
+function currentOwner() {
+    return (localStorage.getItem(getProfileKey('user')) || localStorage.getItem(getProfileKey('channel')) || '').toLowerCase().replace('#', '');
+}
+function twitchAuthHeader() {
+    const tok = (localStorage.getItem(getProfileKey('oauth')) || '').replace(/^oauth:/, '');
+    return tok ? { Authorization: 'Bearer ' + tok } : null;
+}
+function isMyUploadedSound(u) {
+    const m = /^\/\.netlify\/functions\/sounds\?owner=([a-z0-9_]+)&id=([a-f0-9]{32})$/.exec((u || '').trim());
+    return !!m && m[1] === currentOwner();
 }
 function canUseSound(u) {
-    const item = SOUND_LIBRARY.find(x => x.id === (u || '').trim());
-    return !item || soundLibraryForCurrentProfile().includes(item);
+    if (/^\/\.netlify\/functions\/sounds\?/.test((u || '').trim())) return isMyUploadedSound(u);
+    return true;
+}
+async function loadMySounds() {
+    const h = twitchAuthHeader();
+    if (!h) { mySounds = []; return mySounds; }
+    try {
+        const r = await fetch(SOUND_API + '?list=1', { headers: h });
+        if (r.ok) mySounds = (await r.json()).sounds || [];
+    } catch (e) {}
+    return mySounds;
+}
+async function uploadMySound(file) {
+    const h = twitchAuthHeader();
+    if (!h) throw new Error('Log in with Twitch first.');
+    if (file.size > 4 * 1024 * 1024) throw new Error('That file is too big. Keep clips under 4 MB.');
+    let type = file.type;
+    if (!type) {
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        type = { mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', aac: 'audio/aac', webm: 'audio/webm' }[ext] || '';
+    }
+    if (!/^audio\//.test(type)) throw new Error('Please pick an audio file (mp3, wav, ogg or m4a).');
+    const r = await fetch(SOUND_API, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': type, 'X-File-Name': encodeURIComponent(file.name) }, h),
+        body: file
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Upload failed. Try again.');
+    mySounds.push(d);
+    return d;
+}
+async function deleteMySound(id) {
+    const h = twitchAuthHeader();
+    if (!h) return;
+    const r = await fetch(SOUND_API + '?id=' + encodeURIComponent(id), { method: 'DELETE', headers: h });
+    if (r.ok) mySounds = mySounds.filter(x => x.id !== id);
 }
 function isValidSoundUrl(u) {
-    return typeof u === 'string' && /^(https:\/\/|\/sounds\/)[^\s"'<>]+$/i.test(u.trim());
+    return typeof u === 'string' &&
+        (/^https:\/\/[^\s"'<>]+$/i.test(u.trim()) || /^\/\.netlify\/functions\/sounds\?owner=[a-z0-9_]+&id=[a-f0-9]{32}$/.test(u.trim()));
 }
 function loadAlertSettings() {
     let a = null;
@@ -3364,38 +3405,96 @@ function attachSupportAlertHandlers(client, isStale) {
     $('alertOverlayVolume').value = Math.round(al.overlayVolume * 100);
     $('alertOverlayTts').checked = al.overlayTts;
     const KINDS = ['sub', 'bits', 'gift', 'raid'];
-    // Build the per-alert sound pickers
-    KINDS.forEach(k => {
-        const sel = $('alertSoundSel_' + k), inp = $('alertSoundUrl_' + k), prev = $('alertSoundPreview_' + k);
+    const fileInput = $('alertSoundFile');
+    let uploadTarget = null;
+
+    function fillPicker(k, value) {
+        const sel = $('alertSoundSel_' + k);
         if (!sel) return;
         sel.innerHTML = '<option value="">Built-in sound</option>' +
-            soundLibraryForCurrentProfile().map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join('') +
-            '<option value="__custom">My own link…</option>';
-        const cur = (al.sounds && al.sounds[k]) || '';
-        if (!cur) sel.value = '';
-        else if (soundLibraryForCurrentProfile().some(x => x.id === cur)) sel.value = cur;
-        else if (SOUND_LIBRARY.some(x => x.id === cur)) sel.value = ''; // not this profile's clip
-        else { sel.value = '__custom'; inp.value = cur; }
-        inp.style.display = sel.value === '__custom' ? '' : 'none';
-        sel.addEventListener('change', () => { inp.style.display = sel.value === '__custom' ? '' : 'none'; save(); });
-        inp.addEventListener('change', () => {
-            if (inp.value.trim() && !isValidSoundUrl(inp.value)) {
-                alert('That link needs to start with https:// and point straight to an audio file (e.g. .mp3).');
+            (mySounds.length ? '<optgroup label="My uploads">' +
+                mySounds.map(x => `<option value="${escapeHtml(x.url)}">${escapeHtml(x.name)}</option>`).join('') + '</optgroup>' : '') +
+            '<option value="__upload">⬆ Upload from my PC…</option>';
+        sel.value = mySounds.some(x => x.url === value) ? value : '';
+        sel.dataset.prev = sel.value;
+    }
+    function fillAllPickers() {
+        const cur = loadAlertSettings().sounds || {};
+        KINDS.forEach(k => fillPicker(k, cur[k] || ''));
+        renderMySoundsList();
+    }
+    function renderMySoundsList() {
+        const list = $('mySoundsList');
+        if (!list) return;
+        if (!mySounds.length) {
+            list.innerHTML = '<p class="muted-note">No uploads yet. Pick "Upload from my PC" in any list above.</p>';
+            return;
+        }
+        list.innerHTML = '';
+        mySounds.forEach(x => {
+            const row = document.createElement('div');
+            row.className = 'my-sound-row';
+            row.innerHTML = `<i class="fa-solid fa-file-audio"></i><span>${escapeHtml(x.name)}</span>
+                <button type="button" class="btn btn-secondary btn-sm" title="Play"><i class="fa-solid fa-play"></i></button>
+                <button type="button" class="btn btn-secondary btn-sm" title="Delete"><i class="fa-solid fa-trash-can"></i></button>`;
+            const [play, del] = row.querySelectorAll('button');
+            play.addEventListener('click', () => playAlertClip(x.url, $('alertDashVolume').value / 100));
+            del.addEventListener('click', async () => {
+                if (!confirm(`Delete "${x.name}"? Any alert using it goes back to the built-in sound.`)) return;
+                await deleteMySound(x.id);
+                const a = loadAlertSettings();
+                KINDS.forEach(k => { if (a.sounds[k] === x.url) a.sounds[k] = ''; });
+                saveAlertSettings(a);
+                fillAllPickers();
+            });
+            list.appendChild(row);
+        });
+    }
+
+    KINDS.forEach(k => {
+        const sel = $('alertSoundSel_' + k), prev = $('alertSoundPreview_' + k);
+        if (!sel) return;
+        sel.addEventListener('change', () => {
+            if (sel.value === '__upload') {
+                sel.value = sel.dataset.prev || '';
+                if (!twitchAuthHeader()) return alert('Log in with Twitch first so your sounds are saved to your account.');
+                uploadTarget = k;
+                fileInput.click();
+                return;
             }
+            sel.dataset.prev = sel.value;
             save();
         });
         prev.addEventListener('click', () => {
             const v = soundValue(k);
             const vol = $('alertDashVolume').value / 100;
-            if (v) playAlertClip(v, vol, () => alert("Couldn't play that sound. Check the link opens an audio file directly."));
+            if (v) playAlertClip(v, vol, () => alert("Couldn't play that sound."));
             else playSynthesizedSound(SUPPORT_SOUNDS[k], vol);
         });
     });
+
+    if (fileInput) fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (!file || !uploadTarget) return;
+        const status = $('alertUploadStatus');
+        if (status) status.textContent = `Uploading "${file.name}"…`;
+        try {
+            const snd = await uploadMySound(file);
+            const a = loadAlertSettings();
+            a.sounds[uploadTarget] = snd.url;
+            saveAlertSettings(a);
+            fillAllPickers();
+            if (status) status.textContent = `✅ "${snd.name}" uploaded and set. Copy your overlay link again for OBS.`;
+        } catch (e) {
+            if (status) status.textContent = '⚠️ ' + (e.message || 'Upload failed.');
+        }
+    });
+
     function soundValue(k) {
-        const sel = $('alertSoundSel_' + k), inp = $('alertSoundUrl_' + k);
-        if (!sel || !sel.value) return '';
-        const v = sel.value === '__custom' ? inp.value.trim() : sel.value;
-        return isValidSoundUrl(v) ? v : '';
+        const sel = $('alertSoundSel_' + k);
+        if (!sel || !sel.value || sel.value === '__upload') return '';
+        return isValidSoundUrl(sel.value) ? sel.value : '';
     }
     const save = () => saveAlertSettings({
         dashSound: $('alertDashSound').checked,
@@ -3406,6 +3505,8 @@ function attachSupportAlertHandlers(client, isStale) {
         sounds: Object.fromEntries(KINDS.map(k => [k, soundValue(k)]))
     });
     ['alertDashSound', 'alertOverlaySound', 'alertOverlayTts'].forEach(id => $(id).addEventListener('change', save));
+    fillAllPickers();
+    loadMySounds().then(fillAllPickers);
     ['alertDashVolume', 'alertOverlayVolume'].forEach(id => $(id).addEventListener('change', save));
 
     const tests = {

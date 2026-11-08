@@ -1893,6 +1893,11 @@ input:focus, textarea:focus, select:focus {
     background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-subtle);
     border-radius: 8px; padding: 8px 10px; min-width: 0;
 }
-.alert-sound-row input { grid-column: 2 / 3; }
-.alert-sound-row input + button { grid-column: 3; }
 @media (max-width: 640px) { .alert-sound-row { grid-template-columns: 1fr auto; } .alert-sound-row .lbl { grid-column: 1 / -1; } }
+
+.upload-status { font-size: .85rem; color: var(--accent); margin-top: 10px; min-height: 1em; }
+.my-sounds-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.my-sound-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: var(--bg-base); }
+.my-sound-row i.fa-file-audio { color: var(--accent); }
+.my-sound-row span { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted-note { color: var(--text-secondary); font-size: .85rem; }

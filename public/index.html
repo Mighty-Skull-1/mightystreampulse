@@ -543,33 +543,33 @@
 
                         <div class="settings-card" style="margin-top: 16px;">
                             <h3><i class="fa-solid fa-music" style="color: var(--accent);"></i> Alert sounds</h3>
-                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">Pick a sound for each alert. Use a built-in sound, a voice clip hosted on the site, or a direct link to your own .mp3.</p>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">Pick a sound for each alert, or choose <strong>Upload from my PC</strong> to use your own clip (mp3, wav, ogg or m4a, up to 4 MB). Your uploads are saved to your Twitch account and only play on your channel.</p>
                             <div class="alert-sound-list">
                                 <div class="alert-sound-row">
                                     <span class="lbl"><i class="fa-solid fa-star"></i> Subs</span>
                                     <select id="alertSoundSel_sub"></select>
-                                    <input type="url" id="alertSoundUrl_sub" placeholder="https://… link to an .mp3" style="display:none">
                                     <button type="button" id="alertSoundPreview_sub" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
                                 </div>
                                 <div class="alert-sound-row">
                                     <span class="lbl"><i class="fa-solid fa-gem"></i> Bits</span>
                                     <select id="alertSoundSel_bits"></select>
-                                    <input type="url" id="alertSoundUrl_bits" placeholder="https://… link to an .mp3" style="display:none">
                                     <button type="button" id="alertSoundPreview_bits" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
                                 </div>
                                 <div class="alert-sound-row">
                                     <span class="lbl"><i class="fa-solid fa-gift"></i> Gifted subs</span>
                                     <select id="alertSoundSel_gift"></select>
-                                    <input type="url" id="alertSoundUrl_gift" placeholder="https://… link to an .mp3" style="display:none">
                                     <button type="button" id="alertSoundPreview_gift" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
                                 </div>
                                 <div class="alert-sound-row">
                                     <span class="lbl"><i class="fa-solid fa-people-group"></i> Raids</span>
                                     <select id="alertSoundSel_raid"></select>
-                                    <input type="url" id="alertSoundUrl_raid" placeholder="https://… link to an .mp3" style="display:none">
                                     <button type="button" id="alertSoundPreview_raid" class="btn btn-secondary btn-sm" title="Preview"><i class="fa-solid fa-play"></i></button>
                                 </div>
                             </div>
+                            <input type="file" id="alertSoundFile" accept="audio/*,.mp3,.wav,.ogg,.m4a" hidden>
+                            <p id="alertUploadStatus" class="upload-status"></p>
+                            <h4 style="margin-top: 16px;">My uploaded sounds</h4>
+                            <div id="mySoundsList" class="my-sounds-list"></div>
                         </div>
 
                         <div class="settings-card" style="margin-top: 16px;">
