@@ -315,10 +315,16 @@
             o.start(actx.currentTime + start); o.stop(actx.currentTime + start + dur + 0.05);
         }
         // Custom clip per alert type: &snd_sub=<url or /sounds/file.mp3>
+        // Private clips hosted on the site only play on their owner's channel
+        const PRIVATE_SOUNDS = { 'mighty-thanks.mp3': ['mightyttv0'] };
         const CUSTOM_SOUNDS = {};
         ['sub', 'bits', 'gift', 'raid'].forEach(k => {
             const v = params.get('snd_' + k);
-            if (v && /^(https:\/\/|\/sounds\/)[^\s"'<>]+$/i.test(v)) CUSTOM_SOUNDS[k] = v;
+            if (!v || !/^(https:\/\/|\/sounds\/)[^\s"'<>]+$/i.test(v)) return;
+            const file = (v.match(/\/sounds\/([^?#\/]+)$/i) || [])[1];
+            const sameSite = v.startsWith('/') || v.startsWith(location.origin + '/');
+            if (file && sameSite && PRIVATE_SOUNDS[file] && !PRIVATE_SOUNDS[file].includes(CHANNEL)) return;
+            CUSTOM_SOUNDS[k] = v;
         });
         // Preload so the clip starts instantly
         Object.values(CUSTOM_SOUNDS).forEach(u => { try { const a = new Audio(u); a.preload = 'auto'; } catch (e) {} });

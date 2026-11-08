@@ -1678,7 +1678,7 @@ function buildOverlayUrl() {
             else if (Math.abs(al.overlayVolume - 0.8) > 0.001) url += '&volume=' + al.overlayVolume.toFixed(2);
             if (al.overlayTts) url += '&tts=1';
             Object.entries(al.sounds || {}).forEach(([k, v]) => {
-                if (isValidSoundUrl(v)) url += '&snd_' + k + '=' + encodeURIComponent(v.trim());
+                if (isValidSoundUrl(v) && canUseSound(v)) url += '&snd_' + k + '=' + encodeURIComponent(v.trim());
             });
         } catch (e) {}
         try {
@@ -3228,9 +3228,18 @@ function syncThemeControls(t) {
 const DEFAULT_ALERTS = { dashSound: true, dashVolume: 0.8, overlaySound: true, overlayVolume: 0.8, overlayTts: false,
                          sounds: { sub: '', bits: '', gift: '', raid: '' } };
 // Clips hosted on the site itself (public/sounds). Add more files there and list them here.
+// `owners` = the only channels that can see and use the clip. Leave it out to share a clip with everyone.
 const SOUND_LIBRARY = [
-    { id: '/sounds/mighty-thanks.mp3', name: 'Mighty voice: "Thanks!"' }
+    { id: '/sounds/mighty-thanks.mp3', name: 'Custom voice: "Thanks!"', owners: ['mightyttv0'] }
 ];
+function soundLibraryForCurrentProfile() {
+    const chan = (localStorage.getItem(getProfileKey('channel')) || '').toLowerCase().replace('#', '');
+    return SOUND_LIBRARY.filter(x => !x.owners || x.owners.includes(chan));
+}
+function canUseSound(u) {
+    const item = SOUND_LIBRARY.find(x => x.id === (u || '').trim());
+    return !item || soundLibraryForCurrentProfile().includes(item);
+}
 function isValidSoundUrl(u) {
     return typeof u === 'string' && /^(https:\/\/|\/sounds\/)[^\s"'<>]+$/i.test(u.trim());
 }
@@ -3253,7 +3262,7 @@ function dashboardSupportAlert(kind, title, text) {
     const al = loadAlertSettings();
     if (al.dashSound) {
         const custom = al.sounds && al.sounds[kind];
-        if (isValidSoundUrl(custom)) {
+        if (isValidSoundUrl(custom) && canUseSound(custom)) {
             playAlertClip(custom, al.dashVolume, () => playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume));
         } else {
             playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume);
@@ -3360,11 +3369,12 @@ function attachSupportAlertHandlers(client, isStale) {
         const sel = $('alertSoundSel_' + k), inp = $('alertSoundUrl_' + k), prev = $('alertSoundPreview_' + k);
         if (!sel) return;
         sel.innerHTML = '<option value="">Built-in sound</option>' +
-            SOUND_LIBRARY.map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join('') +
+            soundLibraryForCurrentProfile().map(x => `<option value="${escapeHtml(x.id)}">${escapeHtml(x.name)}</option>`).join('') +
             '<option value="__custom">My own link…</option>';
         const cur = (al.sounds && al.sounds[k]) || '';
         if (!cur) sel.value = '';
-        else if (SOUND_LIBRARY.some(x => x.id === cur)) sel.value = cur;
+        else if (soundLibraryForCurrentProfile().some(x => x.id === cur)) sel.value = cur;
+        else if (SOUND_LIBRARY.some(x => x.id === cur)) sel.value = ''; // not this profile's clip
         else { sel.value = '__custom'; inp.value = cur; }
         inp.style.display = sel.value === '__custom' ? '' : 'none';
         sel.addEventListener('change', () => { inp.style.display = sel.value === '__custom' ? '' : 'none'; save(); });
