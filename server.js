@@ -449,7 +449,7 @@ async function executeHelixModeration(action, target, duration) {
                     const r = await fetch(`https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${broadcasterId}&moderator_id=${userId}`, {
                         method: 'POST',
                         headers: { 'Client-ID': clientId, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ data: { user_id: targetId, duration: parseInt(duration || 600, 10), reason: 'Timed out via MightyStreamPulse' } })
+                        body: JSON.stringify({ data: { user_id: targetId, duration: parseInt(duration || 600, 10), reason: 'Timed out via LightFeed' } })
                     });
                     return r.ok;
                 }
@@ -631,7 +631,7 @@ wss.on('connection', (ws) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`[Dashboard] MightyStreamPulse Pro Suite running at http://localhost:${PORT}`);
+    console.log(`[Dashboard] LightFeed Pro Suite running at http://localhost:${PORT}`);
     console.log(`[OBS Overlay] OBS Browser Source URL: http://localhost:${PORT}/overlay.html`);
     if (currentConfig.username && currentConfig.oauth && currentConfig.channel) {
         connectTwitch(currentConfig);

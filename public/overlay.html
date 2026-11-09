@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MightyStreamPulse - OBS Studio Overlay</title>
+    <title>LightFeed - OBS Studio Overlay</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root { --primary: var(--primary); --accent: var(--accent); --primary-rgb: 145, 70, 255; }
@@ -230,7 +230,7 @@
     <div class="chat-overlay-box" id="chatOverlay"></div>
 
     <div class="overlay-setup-hint" id="setupHint">
-        MightyStreamPulse overlay: add <b>?channel=yourchannel</b> to this link
+        LightFeed overlay: add <b>?channel=yourchannel</b> to this link
         (copy it from the OBS Overlay Setup page in the dashboard).
     </div>
     <canvas id="confettiCanvas"></canvas>
@@ -238,7 +238,7 @@
     <script src="tmi.min.js"></script>
     <script>
         // ============================================================
-        // MightyStreamPulse OBS overlay
+        // LightFeed OBS overlay
         // Reads Twitch chat directly (anonymous, read-only), so it works
         // inside OBS from the Netlify site with no local server.
         // URL options:
@@ -512,7 +512,7 @@
             if (/OVERLAY TEST BITS/i.test(msg)) { supportAlert('bits', 'CHEER', 'TestViewer', 'cheered 500 bits!', 'This is a test bits alert'); return; }
             if (/OVERLAY TEST GIFT/i.test(msg)) { supportAlert('gift', 'GIFT BOMB', 'TestViewer', 'gifted 5 subs to the community!'); return; }
             if (/OVERLAY TEST RAID/i.test(msg)) { supportAlert('raid', 'INCOMING RAID', 'TestStreamer', 'is raiding with 42 viewers!'); return; }
-            if (/OVERLAY TEST/i.test(msg)) { showAlert('OVERLAY CONNECTED', 'Your MightyStreamPulse overlay is working ✅', 'alert'); confetti(); return; }
+            if (/OVERLAY TEST/i.test(msg)) { showAlert('OVERLAY CONNECTED', 'Your LightFeed overlay is working ✅', 'alert'); confetti(); return; }
         }
 
         function handleViewerMessage(user, msg) {

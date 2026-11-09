@@ -1,12 +1,12 @@
 {
-  "name": "twitch-stream-dashboard",
+  "name": "lightfeed",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
   "bin": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build-exe": "pkg . --target node18-win-x64 --output MightyStreamPulse.exe"
+    "build-exe": "pkg . --target node18-win-x64 --output LightFeed.exe"
   },
   "pkg": {
     "assets": [

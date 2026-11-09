@@ -1,17 +1,17 @@
-# MightyStreamPulse ⚡
+# LightFeed ⚡
 > **All-in-One Twitch Streamer Deck, Chatbot, Moderation Suite & OBS Overlay**
 
 [![Live Demo](https://img.shields.io/badge/Live%20App-mightystreampulse.netlify.app-9146ff?style=for-the-badge&logo=twitch&logoColor=white)](https://mightystreampulse.netlify.app)
 [![Netlify Status](https://img.shields.io/badge/Hosted%20On-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://mightystreampulse.netlify.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-**MightyStreamPulse** is a lightweight, responsive, and browser-first Twitch command center designed for content creators, streamers, and moderators. It combines a 1-click Stream Deck action pad, automated chatbot engine (**MightyStreamPulse Bot**), live moderation controls, custom soundboard, viewer engagement minigames, and animated OBS Studio browser overlays into a single dashboard.
+**LightFeed** is a lightweight, responsive, and browser-first Twitch command center designed for content creators, streamers, and moderators. It combines a 1-click Stream Deck action pad, automated chatbot engine (**LightFeed Bot**), live moderation controls, custom soundboard, viewer engagement minigames, and animated OBS Studio browser overlays into a single dashboard.
 
 ---
 
 ## ✨ Key Features
 
-### 🤖 MightyStreamPulse Bot (Twitch Chatbot Integration)
+### 🤖 LightFeed Bot (Twitch Chatbot Integration)
 - **Direct Twitch IRC Connectivity:** Connects directly via WebSocket IRC using client-side `tmi.js`—no server required!
 - **Auto-Reply Commands:** Comes preconfigured with `!discord`, `!socials`, `!rules`, `!uptime`, `!game`, and allows creating unlimited custom commands with real-time in-browser management.
 - **Timed Chat Announcements:** Set up recurring broadcast messages (Discord community links, hydration/stretch checks, follow & sub reminders) on configurable minute intervals.
@@ -116,12 +116,12 @@ Simply navigate to:
 
 ## ⚙️ Connecting to Twitch
 
-1. Open **MightyStreamPulse**.
+1. Open **LightFeed**.
 2. Click **Connect Twitch Account** or authorize with Twitch OAuth:
    - Generate your OAuth token using the Twitch Token Generator link provided in the dashboard.
    - Required scopes: `chat:read`, `chat:edit`, `channel:moderate`.
 3. Enter your **Bot Username** (or channel name) and **Channel to Join**.
-4. Click **Connect Bot** — the status light will turn green (**Connected**), and **MightyStreamPulse Bot** will enter your chat room!
+4. Click **Connect Bot** — the status light will turn green (**Connected**), and **LightFeed Bot** will enter your chat room!
 
 ---
 
@@ -129,7 +129,7 @@ Simply navigate to:
 
 1. In OBS Studio or Streamlabs, navigate to your **Sources** panel.
 2. Click **+ (Add Source)** and choose **Browser**.
-3. Name the source `MightyStreamPulse Overlay`.
+3. Name the source `LightFeed Overlay`.
 4. Enter the URL:
    - **Hosted:** `https://mightystreampulse.netlify.app/overlay.html`
    - **Local:** `http://localhost:3000/overlay.html`
@@ -171,5 +171,5 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  Built with ❤️ for the Twitch Streaming Community by <strong>MightyStreamPulse</strong>
+  Built with ❤️ for the Twitch Streaming Community by <strong>LightFeed</strong>
 </p>

@@ -1,4 +1,4 @@
-// MightyStreamPulse custom alert sounds
+// LightFeed custom alert sounds
 // Stores each streamer's uploaded clips in Netlify Blobs, keyed by their Twitch login.
 //
 //   GET    /.netlify/functions/sounds?owner=<login>&id=<id>   -> the audio file (public, used by OBS)

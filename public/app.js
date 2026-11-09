@@ -1,4 +1,4 @@
-// MightyStreamPulse Client Engine (Works BOTH locally with Node.js and publicly on Netlify / Vercel)
+// LightFeed Client Engine (Works BOTH locally with Node.js and publicly on Netlify / Vercel)
 const defaultButtons = [
     { id: 'welcome', title: 'Welcome Chat', category: 'Greet', icon: 'fa-solid fa-hand', message: '👋 Welcome into the stream everyone! Make sure to say hi in chat and hit that follow button!' },
     { id: 'socials', title: 'Share Socials', category: 'Links', icon: 'fa-solid fa-share-nodes', message: '🌐 Follow my socials! Twitter: @YourHandle | YouTube: @YourChannel | TikTok: @YourStream' },
@@ -592,14 +592,14 @@ async function sendChatMessage(message) {
             clientStats.messagesSent++;
             updateStatsUI(clientStats);
             appendChatMessage({
-                displayName: 'MightyStreamPulse Bot',
+                displayName: 'LightFeed Bot',
                 color: '#00f0ff',
                 message: message.trim(),
                 isSelf: true,
                 timestamp: new Date().toLocaleTimeString()
             });
         } catch (e) {
-            console.error('[MightyStreamPulse] Failed to send chat message:', e);
+            console.error('[LightFeed] Failed to send chat message:', e);
         }
         return;
     }
@@ -794,7 +794,7 @@ async function runKeepAliveWatchdog() {
                     return;
                 } catch (e) {
                     missedPings++;
-                    console.warn('[MightyStreamPulse Shield] Ping missed (' + missedPings + ')');
+                    console.warn('[LightFeed Shield] Ping missed (' + missedPings + ')');
                     if (missedPings < 2) return;
                 }
             } else {
@@ -819,14 +819,14 @@ async function runKeepAliveWatchdog() {
         }
     } catch (e) { /* offline - just retry later */ }
 
-    console.log('[MightyStreamPulse Shield] Connection dropped. Auto-reviving chat connection...');
+    console.log('[LightFeed Shield] Connection dropped. Auto-reviving chat connection...');
     nextReconnectAt = Date.now() + reconnectBackoffMs;
     reconnectBackoffMs = Math.min(reconnectBackoffMs * 2, 60000);
     updateStatusUI('connecting', savedChan);
     try {
         await connectClientTmi(savedUser, savedOauth, savedChan, true);
     } catch (e) {
-        console.warn('[MightyStreamPulse Shield] Auto-revive attempt error:', e);
+        console.warn('[LightFeed Shield] Auto-revive attempt error:', e);
     }
 }
 
@@ -861,7 +861,7 @@ window.addEventListener('focus', () => {
 });
 
 window.addEventListener('online', () => {
-    console.log('[MightyStreamPulse] Network online detected. Verifying chat connection...');
+    console.log('[LightFeed] Network online detected. Verifying chat connection...');
     runKeepAliveWatchdog();
 });
 
@@ -869,7 +869,7 @@ window.addEventListener('online', () => {
 let isConnectingTmi = false;
 async function connectClientTmi(username, oauth, channel, isAutoReconnect = false) {
     if (isConnectingTmi) {
-        console.log('[MightyStreamPulse] Connection already in progress. Skipping duplicate connect call.');
+        console.log('[LightFeed] Connection already in progress. Skipping duplicate connect call.');
         return false;
     }
 
@@ -952,7 +952,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
 
     clientTmi.on('reconnect', () => {
         updateStatusUI('connecting', chan);
-        console.log('[MightyStreamPulse] TMI reconnecting...');
+        console.log('[LightFeed] TMI reconnecting...');
     });
 
     const myGeneration = ++connectionGeneration;
@@ -980,7 +980,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
 
     clientTmi.on('disconnected', (reason) => {
         if (isStale()) return;
-        console.warn('[MightyStreamPulse] Disconnected:', reason);
+        console.warn('[LightFeed] Disconnected:', reason);
         if (userExplicitlyDisconnected) {
             updateStatusUI('disconnected', chan);
         } else {
@@ -1194,7 +1194,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
         if (!isAutoReconnect) {
             alert(`Twitch Bot Connection Failed:\n${err.message || err}\n\nTroubleshooting:\n1. Click "Switch / Exit" in the top-right corner.\n2. Reconnect with Twitch or use "Quick Token" with your token from twitchapps.com/tmi/`);
         } else {
-            console.warn('[MightyStreamPulse Shield] Background reconnect attempt:', err.message || err);
+            console.warn('[LightFeed Shield] Background reconnect attempt:', err.message || err);
         }
         return false;
     } finally {
@@ -1504,7 +1504,7 @@ async function execModeration(cmd, extraParams = {}) {
         if (cleanCmd.startsWith('/timeout ') || extraParams.action === 'timeout') {
             let targetUser = extraParams.target || '';
             let durationSec = extraParams.duration ? parseInt(extraParams.duration, 10) : 600;
-            let reason = extraParams.reason || 'Timed out via MightyStreamPulse';
+            let reason = extraParams.reason || 'Timed out via LightFeed';
 
             if (!targetUser && cleanCmd.startsWith('/timeout ')) {
                 const parts = cmd.trim().split(/\s+/);
@@ -1559,7 +1559,7 @@ async function execModeration(cmd, extraParams = {}) {
         if (cleanCmd.startsWith('/ban ')) {
             const parts = cmd.trim().split(/\s+/);
             const targetUser = parts[1] ? parts[1].replace('@', '') : '';
-            const reason = parts.length > 2 ? parts.slice(2).join(' ') : 'Banned via MightyStreamPulse';
+            const reason = parts.length > 2 ? parts.slice(2).join(' ') : 'Banned via LightFeed';
             if (!targetUser) return alert('Provide username to ban');
 
             const targetId = await fetchTwitchUserId(targetUser, auth.clientId, auth.token);
@@ -1730,7 +1730,7 @@ document.getElementById('btnTestObsAlert').addEventListener('click', async () =>
     if (!clientTmi || typeof clientTmi.readyState !== 'function' || clientTmi.readyState() !== 'OPEN') {
         return alert('Connect the bot to Twitch first, then send the test.');
     }
-    await sendChatMessage('🔔 MightyStreamPulse OVERLAY TEST ✅');
+    await sendChatMessage('🔔 LightFeed OVERLAY TEST ✅');
     alert('Test sent! A banner and confetti should appear on your OBS overlay within a couple of seconds.');
 });
 
@@ -3194,7 +3194,7 @@ async function refreshModState() {
         setModCardState('slow', d.slow_mode, d.slow_mode ? `ON · ${d.slow_mode_wait_time}s` : 'OFF');
         setModCardState('subscribers', d.subscriber_mode);
     } catch (e) {
-        console.warn('[MightyStreamPulse] Could not read chat settings:', e);
+        console.warn('[LightFeed] Could not read chat settings:', e);
     } finally {
         modStateBusy = false;
     }
@@ -3214,12 +3214,12 @@ function exportBackup() {
         if (v !== null) data[k] = v;
     });
     const chan = localStorage.getItem(getProfileKey('channel')) || 'profile';
-    const backup = { app: 'MightyStreamPulse', version: 1, exportedAt: new Date().toISOString(), channel: chan, data };
+    const backup = { app: 'LightFeed', version: 1, exportedAt: new Date().toISOString(), channel: chan, data };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     const stamp = new Date().toISOString().slice(0, 10);
     a.href = URL.createObjectURL(blob);
-    a.download = `mightystreampulse-backup-${chan}-${stamp}.json`;
+    a.download = `lightfeed-backup-${chan}-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
@@ -3229,9 +3229,9 @@ function importBackupFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
         let backup;
-        try { backup = JSON.parse(reader.result); } catch (e) { return alert('That file isn\'t a valid MightyStreamPulse backup.'); }
-        if (!backup || backup.app !== 'MightyStreamPulse' || typeof backup.data !== 'object') {
-            return alert('That file isn\'t a valid MightyStreamPulse backup.');
+        try { backup = JSON.parse(reader.result); } catch (e) { return alert('That file isn\'t a valid LightFeed backup.'); }
+        if (!backup || !['LightFeed', 'MightyStreamPulse'].includes(backup.app) || typeof backup.data !== 'object') {
+            return alert('That file isn\'t a valid LightFeed backup.');
         }
         const keys = Object.keys(backup.data).filter(k => BACKUP_KEYS.includes(k));
         if (!keys.length) return alert('That backup is empty.');
@@ -3667,7 +3667,7 @@ function attachSupportAlertHandlers(client, isStale) {
                 if (!clientTmi || typeof clientTmi.readyState !== 'function' || clientTmi.readyState() !== 'OPEN') {
                     return alert('Connect the bot to Twitch first to test on the OBS overlay.');
                 }
-                await sendChatMessage(`🔔 MightyStreamPulse OVERLAY TEST ${t[3]}`);
+                await sendChatMessage(`🔔 LightFeed OVERLAY TEST ${t[3]}`);
             }
         });
     });
