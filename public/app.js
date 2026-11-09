@@ -25,17 +25,17 @@ const defaultCommands = {
 };
 
 const defaultSoundboard = [
-    { id: 'sb_1', name: 'Airhorn', icon: '📢', type: 'preset', preset: 'airhorn' },
-    { id: 'sb_2', name: 'Hype Fanfare', icon: '🎉', type: 'preset', preset: 'hype' },
-    { id: 'sb_3', name: 'Applause', icon: '👏', type: 'preset', preset: 'applause' },
-    { id: 'sb_4', name: 'Bell Chime', icon: '🔔', type: 'preset', preset: 'ding' },
-    { id: 'sb_5', name: 'Ba-dum-tss', icon: '🥁', type: 'preset', preset: 'drum' },
-    { id: 'sb_6', name: 'Victory', icon: '🏆', type: 'preset', preset: 'victory' },
-    { id: 'sb_7', name: 'Game Over', icon: '💀', type: 'preset', preset: 'gameover' },
-    { id: 'sb_8', name: 'Laser', icon: '⚡', type: 'preset', preset: 'laser' },
-    { id: 'sb_9', name: 'Coin 1-Up', icon: '🪙', type: 'preset', preset: 'coin' },
-    { id: 'sb_10', name: 'Bonk', icon: '💥', type: 'preset', preset: 'bonk' },
-    { id: 'sb_11', name: 'Siren', icon: '🚨', type: 'preset', preset: 'siren' }
+    { id: 'sb_1', name: 'Airhorn', category: 'Hype', icon: '📢', type: 'preset', preset: 'airhorn' },
+    { id: 'sb_2', name: 'Hype Fanfare', category: 'Hype', icon: '🎉', type: 'preset', preset: 'hype' },
+    { id: 'sb_3', name: 'Applause', category: 'Reactions', icon: '👏', type: 'preset', preset: 'applause' },
+    { id: 'sb_4', name: 'Bell Chime', category: 'Reactions', icon: '🔔', type: 'preset', preset: 'ding' },
+    { id: 'sb_5', name: 'Ba-dum-tss', category: 'Funny', icon: '🥁', type: 'preset', preset: 'drum' },
+    { id: 'sb_6', name: 'Victory', category: 'Game', icon: '🏆', type: 'preset', preset: 'victory' },
+    { id: 'sb_7', name: 'Game Over', category: 'Game', icon: '💀', type: 'preset', preset: 'gameover' },
+    { id: 'sb_8', name: 'Laser', category: 'Game', icon: '⚡', type: 'preset', preset: 'laser' },
+    { id: 'sb_9', name: 'Coin 1-Up', category: 'Game', icon: '🪙', type: 'preset', preset: 'coin' },
+    { id: 'sb_10', name: 'Bonk', category: 'Funny', icon: '💥', type: 'preset', preset: 'bonk' },
+    { id: 'sb_11', name: 'Siren', category: 'Hype', icon: '🚨', type: 'preset', preset: 'siren' }
 ];
 
 // Multi-Streamer Profile Authentication Check
@@ -335,21 +335,39 @@ function playFx(type) {
     playSynthesizedSound(type, soundboardVolume);
 }
 
-function playSoundItem(item) {
+const sbPlaying = new Set();
+function trackSbAudio(audio, onEnd) {
+    sbPlaying.add(audio);
+    const done = () => { sbPlaying.delete(audio); if (onEnd) onEnd(); };
+    audio.addEventListener('ended', done);
+    audio.addEventListener('pause', done);
+    audio.addEventListener('error', done);
+}
+function stopAllSounds() {
+    sbPlaying.forEach(a => { try { a.pause(); a.currentTime = 0; } catch (e) {} });
+    sbPlaying.clear();
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+    document.querySelectorAll('.sb-pad.playing').forEach(p => p.classList.remove('playing'));
+}
+
+function playSoundItem(item, onEnd) {
     if (!item) return;
     if (item.type === 'preset') {
         playSynthesizedSound(item.preset || 'hype', soundboardVolume);
+        if (onEnd) setTimeout(onEnd, 900);
     } else if (item.type === 'upload' && item.audioData) {
         try {
             const audio = new Audio(item.audioData);
             audio.volume = Math.max(0, Math.min(1, soundboardVolume));
-            audio.play().catch(e => console.warn('Audio play error:', e));
+            trackSbAudio(audio, onEnd);
+            audio.play().catch(e => { console.warn('Audio play error:', e); if (onEnd) onEnd(); });
         } catch (e) {
             console.error('Failed to play custom audio file:', e);
         }
-    } else if (item.type === 'url' && item.url) {
+    } else if ((item.type === 'url' || item.type === 'cloud') && item.url) {
         try {
             const audio = new Audio(item.url);
+            trackSbAudio(audio, onEnd);
             audio.volume = Math.max(0, Math.min(1, soundboardVolume));
             audio.play().catch(e => {
                 console.warn('Audio URL play error:', e);
@@ -2387,32 +2405,82 @@ document.getElementById('btnConfirmAdd').addEventListener('click', () => {
 // Custom Soundboard Studio & Volume Controls
 // ==========================================
 let sbTempUploadedData = null;
+let sbTempCloudUrl = null;
+
+const SB_CATEGORIES = ['Hype', 'Funny', 'Reactions', 'Game', 'Custom'];
+const SB_HOTKEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+let sbActiveCategory = 'All';
+let sbSearch = '';
 
 function renderSoundboard() {
     const grid = document.getElementById('soundboardGrid');
     if (!grid) return;
-    grid.innerHTML = '';
 
-    soundboardSounds.forEach((item, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'fx-btn';
-        btn.setAttribute('data-sound-index', index);
-        btn.title = item.name + (item.type === 'preset' ? ` (${item.preset})` : ` (${item.type})`);
-        btn.innerHTML = `<span style="margin-right: 4px;">${escapeHtml(item.icon || '🔊')}</span>${escapeHtml(item.name)}`;
-
-        btn.addEventListener('click', () => {
-            playSoundItem(item);
-            btn.style.transform = 'scale(0.93)';
-            setTimeout(() => { btn.style.transform = ''; }, 120);
+    // Category chips (only show categories that have sounds)
+    const chips = document.getElementById('sbCategoryChips');
+    if (chips) {
+        const used = SB_CATEGORIES.filter(cat => soundboardSounds.some(x => (x.category || 'Custom') === cat));
+        if (sbActiveCategory !== 'All' && !used.includes(sbActiveCategory)) sbActiveCategory = 'All';
+        chips.innerHTML = '';
+        ['All'].concat(used).forEach(cat => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'sb-chip' + (cat === sbActiveCategory ? ' active' : '');
+            b.dataset.cat = cat.toLowerCase();
+            const count = cat === 'All' ? soundboardSounds.length : soundboardSounds.filter(x => (x.category || 'Custom') === cat).length;
+            b.innerHTML = `${escapeHtml(cat)} <span>${count}</span>`;
+            b.addEventListener('click', () => { sbActiveCategory = cat; renderSoundboard(); });
+            chips.appendChild(b);
         });
+    }
 
-        grid.appendChild(btn);
+    grid.innerHTML = '';
+    const q = sbSearch.trim().toLowerCase();
+    let shown = 0;
+    soundboardSounds.forEach((item, index) => {
+        const cat = item.category || 'Custom';
+        if (sbActiveCategory !== 'All' && cat !== sbActiveCategory) return;
+        if (q && !(item.name || '').toLowerCase().includes(q)) return;
+        const hotkey = index < SB_HOTKEYS.length ? SB_HOTKEYS[index] : '';
+        const pad = document.createElement('div');
+        pad.className = 'sb-pad';
+        pad.dataset.cat = cat.toLowerCase();
+        pad.dataset.index = index;
+        pad.tabIndex = 0;
+        pad.setAttribute('role', 'button');
+        pad.title = `Play ${item.name}`;
+        pad.innerHTML = `
+            ${hotkey ? `<span class="sb-key">${hotkey}</span>` : ''}
+            <button type="button" class="sb-edit" title="Edit sound"><i class="fa-solid fa-pen"></i></button>
+            <span class="sb-emoji">${escapeHtml(item.icon || '🔊')}</span>
+            <span class="sb-name">${escapeHtml(item.name)}</span>
+            <span class="sb-cat">${escapeHtml(cat)}</span>`;
+        const play = () => triggerPad(pad, item);
+        pad.addEventListener('click', (e) => { if (!e.target.closest('.sb-edit')) play(); });
+        pad.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(); } });
+        pad.querySelector('.sb-edit').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openSoundModal();
+            editSbItem(index);
+        });
+        grid.appendChild(pad);
+        shown++;
     });
 
-    const volSlider = document.getElementById('soundboardVolume');
-    if (volSlider) {
-        volSlider.value = soundboardVolume;
+    if (!shown) {
+        grid.innerHTML = `<div class="sb-empty"><i class="fa-solid fa-volume-xmark"></i><p>${soundboardSounds.length ? 'No sounds match.' : 'No sounds yet. Click <b>Add Sound</b> to make your first pad.'}</p></div>`;
     }
+
+    const volSlider = document.getElementById('soundboardVolume');
+    if (volSlider) volSlider.value = soundboardVolume;
+    const volLabel = document.getElementById('sbVolumeLabel');
+    if (volLabel) volLabel.textContent = Math.round(soundboardVolume * 100) + '%';
+}
+
+function triggerPad(pad, item) {
+    pad.classList.remove('hit'); void pad.offsetWidth; pad.classList.add('hit');
+    pad.classList.add('playing');
+    playSoundItem(item, () => pad.classList.remove('playing'));
 }
 
 function updateSbTypeView(type) {
@@ -2441,6 +2509,9 @@ function resetSbForm() {
     if (iconEl) iconEl.value = '🔊';
     if (typeEl) typeEl.value = 'preset';
     if (presetEl) presetEl.value = 'airhorn';
+    const catEl = document.getElementById('sbSelectCategory');
+    if (catEl) catEl.value = sbActiveCategory !== 'All' ? sbActiveCategory : 'Custom';
+    sbTempCloudUrl = null;
     if (fileEl) fileEl.value = '';
     if (statusEl) statusEl.textContent = '';
     if (urlEl) urlEl.value = '';
@@ -2479,6 +2550,16 @@ function editSbItem(index) {
     }
 
     if (titleEl) titleEl.scrollIntoView({ behavior: 'smooth' });
+    const catSel = document.getElementById('sbSelectCategory');
+    if (catSel) catSel.value = item.category || 'Custom';
+    if (item.type === 'cloud') {
+        sbTempCloudUrl = item.url;
+        const t = document.getElementById('sbSelectType');
+        if (t) t.value = 'upload';
+        updateSbTypeView('upload');
+        const st = document.getElementById('sbUploadStatus');
+        if (st) st.textContent = '✓ Using your uploaded sound. Pick a new file to replace it.';
+    }
 }
 
 function renderSoundListManager() {
@@ -2567,13 +2648,34 @@ const sbFileInputEl = document.getElementById('sbFileInput');
 const btnSbPreviewEl = document.getElementById('btnSbPreview');
 const btnSbSaveEl = document.getElementById('btnSbSave');
 
-if (btnOpenSoundModal) {
-    btnOpenSoundModal.addEventListener('click', () => {
-        resetSbForm();
-        renderSoundListManager();
-        if (soundboardModal) soundboardModal.classList.add('open');
-    });
+function openSoundModal() {
+    resetSbForm();
+    renderSoundListManager();
+    if (soundboardModal) soundboardModal.classList.add('open');
 }
+if (btnOpenSoundModal) btnOpenSoundModal.addEventListener('click', openSoundModal);
+
+// Stop All, search, hotkeys
+const btnSbStopAll = document.getElementById('btnSbStopAll');
+if (btnSbStopAll) btnSbStopAll.addEventListener('click', stopAllSounds);
+const sbSearchInput = document.getElementById('sbSearchInput');
+if (sbSearchInput) sbSearchInput.addEventListener('input', () => { sbSearch = sbSearchInput.value; renderSoundboard(); });
+
+document.addEventListener('keydown', (e) => {
+    const tab = document.getElementById('tab-soundboard');
+    if (!tab || !tab.classList.contains('active')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+    if (soundboardModal && soundboardModal.classList.contains('open')) return;
+    if (e.key === 'Escape') { stopAllSounds(); return; }
+    const idx = SB_HOTKEYS.indexOf(e.key);
+    if (idx === -1 || !soundboardSounds[idx]) return;
+    e.preventDefault();
+    const pad = document.querySelector(`.sb-pad[data-index="${idx}"]`);
+    if (pad) triggerPad(pad, soundboardSounds[idx]);
+    else playSoundItem(soundboardSounds[idx]);
+});
 
 function closeSoundModal() {
     if (soundboardModal) soundboardModal.classList.remove('open');
@@ -2591,12 +2693,31 @@ if (sbFileInputEl) {
     sbFileInputEl.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (file.size > 8 * 1024 * 1024) {
-            alert('Audio file exceeds 8MB. Please choose a smaller sound file.');
+        const status = document.getElementById('sbUploadStatus');
+        sbTempCloudUrl = null;
+        sbTempUploadedData = null;
+
+        // Preferred: save to the streamer's private cloud sounds (works in OBS + on any PC)
+        if (twitchAuthHeader()) {
+            if (status) status.textContent = 'Uploading…';
+            uploadMySound(file).then(snd => {
+                sbTempCloudUrl = snd.url;
+                if (status) status.textContent = `✓ Uploaded: ${file.name}`;
+                const nameEl = document.getElementById('sbInputName');
+                if (nameEl && !nameEl.value.trim()) nameEl.value = snd.name;
+            }).catch(err => {
+                if (status) status.textContent = '⚠️ ' + (err.message || 'Upload failed.');
+                sbFileInputEl.value = '';
+            });
+            return;
+        }
+
+        // Fallback when not logged in: keep a small copy in this browser only
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Log in with Twitch to upload sounds up to 4 MB. Without logging in, sounds must be under 2 MB.');
             sbFileInputEl.value = '';
             return;
         }
-        const status = document.getElementById('sbUploadStatus');
         if (status) status.textContent = 'Reading file...';
         const reader = new FileReader();
         reader.onload = (ev) => {
@@ -2619,7 +2740,7 @@ if (btnSbPreviewEl) {
             playSynthesizedSound(preset, soundboardVolume);
         } else if (type === 'upload') {
             const editIdx = parseInt(document.getElementById('sbEditIndex').value, 10);
-            const audioData = sbTempUploadedData || (editIdx >= 0 && soundboardSounds[editIdx]?.audioData);
+            const audioData = sbTempCloudUrl || sbTempUploadedData || (editIdx >= 0 && soundboardSounds[editIdx]?.audioData);
             if (!audioData) {
                 alert('Please choose an audio file first!');
                 return;
@@ -2657,18 +2778,24 @@ if (btnSbSaveEl) {
             id: editIdx >= 0 && soundboardSounds[editIdx] ? soundboardSounds[editIdx].id : 'sb_' + Date.now(),
             name,
             icon,
+            category: (document.getElementById('sbSelectCategory') || {}).value || 'Custom',
             type
         };
 
         if (type === 'preset') {
             soundItem.preset = document.getElementById('sbSelectPreset').value;
         } else if (type === 'upload') {
-            const audioData = sbTempUploadedData || (editIdx >= 0 && soundboardSounds[editIdx]?.audioData);
-            if (!audioData) {
-                alert('Please upload an audio file first!');
-                return;
+            if (sbTempCloudUrl) {
+                soundItem.type = 'cloud';
+                soundItem.url = sbTempCloudUrl;
+            } else {
+                const audioData = sbTempUploadedData || (editIdx >= 0 && soundboardSounds[editIdx]?.audioData);
+                if (!audioData) {
+                    alert('Please upload an audio file first!');
+                    return;
+                }
+                soundItem.audioData = audioData;
             }
-            soundItem.audioData = audioData;
         } else if (type === 'url') {
             const url = document.getElementById('sbUrlInput').value.trim();
             if (!url) {
@@ -2685,7 +2812,12 @@ if (btnSbSaveEl) {
             soundboardSounds.push(soundItem);
         }
 
-        localStorage.setItem(getProfileKey('soundboard'), JSON.stringify(soundboardSounds));
+        try {
+            localStorage.setItem(getProfileKey('soundboard'), JSON.stringify(soundboardSounds));
+        } catch (e) {
+            soundboardSounds = JSON.parse(localStorage.getItem(getProfileKey('soundboard'))) || defaultSoundboard;
+            return alert('Your browser storage is full. Log in with Twitch and use "Upload from my PC" so the sound is saved online instead.');
+        }
         renderSoundboard();
         renderSoundListManager();
         resetSbForm();
@@ -2708,6 +2840,8 @@ if (soundboardVolumeInput) {
     soundboardVolumeInput.addEventListener('input', (e) => {
         soundboardVolume = parseFloat(e.target.value);
         localStorage.setItem(getProfileKey('soundboard_vol'), soundboardVolume.toString());
+        const volLabel = document.getElementById('sbVolumeLabel');
+        if (volLabel) volLabel.textContent = Math.round(soundboardVolume * 100) + '%';
     });
 }
 

@@ -8,7 +8,7 @@
 import { getStore } from '@netlify/blobs';
 
 const MAX_BYTES = 4 * 1024 * 1024;   // 4 MB per clip
-const MAX_SOUNDS = 20;               // per streamer
+const MAX_SOUNDS = 50;               // per streamer (alerts + soundboard)
 const ALLOWED = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/ogg', 'audio/webm', 'audio/mp4', 'audio/x-m4a', 'audio/aac'];
 
 const json = (status, body) => new Response(JSON.stringify(body), {

@@ -37,6 +37,7 @@
             <!-- Navigation Tabs -->
             <nav class="sidebar-nav">
                 <button class="nav-btn active" data-tab="tab-deck"><i class="fa-solid fa-gamepad"></i> Stream Deck</button>
+                <button class="nav-btn" data-tab="tab-soundboard"><i class="fa-solid fa-volume-high"></i> Soundboard</button>
                 <button class="nav-btn" data-tab="tab-music"><i class="fa-solid fa-music"></i> Song Requests</button>
                 <button class="nav-btn" data-tab="tab-interactive"><i class="fa-solid fa-dice"></i> Mini-Games & Polls</button>
                 <button class="nav-btn" data-tab="tab-mod"><i class="fa-solid fa-shield-halved"></i> Quick Mod Desk</button>
@@ -57,22 +58,6 @@
                     <input type="checkbox" id="ttsToggle">
                     <span class="slider"></span>
                 </label>
-            </div>
-
-            <!-- Soundboard Quick FX -->
-            <div class="sound-fx-box">
-                <div class="sound-fx-header">
-                    <h4><i class="fa-solid fa-volume-high"></i> Soundboard FX</h4>
-                    <button id="btnOpenSoundModal" class="sb-tool-btn" title="Customize Soundboard (Add / Upload Sounds)"><i class="fa-solid fa-sliders"></i></button>
-                </div>
-                <div class="soundboard-volume-row">
-                    <i class="fa-solid fa-volume-low"></i>
-                    <input type="range" id="soundboardVolume" min="0" max="1" step="0.05" value="0.7" title="Master Volume">
-                    <i class="fa-solid fa-volume-high"></i>
-                </div>
-                <div class="fx-buttons" id="soundboardGrid">
-                    <!-- Dynamic custom sound buttons -->
-                </div>
             </div>
 
             <!-- Backup & Restore -->
@@ -314,6 +299,40 @@
                 </div>
 
                 <!-- Tab 3: Quick Streamer Moderation Desk -->
+                <div class="tab-content" id="tab-soundboard">
+                    <div class="panel-inner">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Soundboard</h2>
+                                <p>Tap a pad to play it. Press number keys <kbd>1</kbd>–<kbd>0</kbd> on this page as hotkeys.</p>
+                            </div>
+                            <div class="sb-head-actions">
+                                <button id="btnSbStopAll" class="btn btn-secondary"><i class="fa-solid fa-stop"></i> Stop All</button>
+                                <button id="btnOpenSoundModal" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Sound</button>
+                            </div>
+                        </div>
+
+                        <div class="sb-toolbar">
+                            <div class="sb-volume">
+                                <i class="fa-solid fa-volume-low"></i>
+                                <input type="range" id="soundboardVolume" min="0" max="1" step="0.05" value="0.7" title="Master Volume">
+                                <i class="fa-solid fa-volume-high"></i>
+                                <span id="sbVolumeLabel">70%</span>
+                            </div>
+                            <div class="sb-search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="sbSearchInput" placeholder="Search sounds…">
+                            </div>
+                        </div>
+
+                        <div class="sb-chips" id="sbCategoryChips"></div>
+
+                        <div class="sb-pad-grid" id="soundboardGrid"></div>
+
+                        <p class="sb-footnote"><i class="fa-solid fa-circle-info"></i> Viewers hear these if OBS is capturing your desktop audio.</p>
+                    </div>
+                </div>
+
                 <div class="tab-content" id="tab-mod">
                     <div class="panel-inner">
                         <div class="section-banner">
@@ -713,10 +732,21 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Category</label>
+                        <select id="sbSelectCategory">
+                            <option value="Hype">🔥 Hype</option>
+                            <option value="Funny">😂 Funny</option>
+                            <option value="Reactions">😮 Reactions</option>
+                            <option value="Game">🎮 Game</option>
+                            <option value="Custom">⭐ Custom</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <label>Sound Source Type</label>
                         <select id="sbSelectType">
                             <option value="preset">⚡ Built-in Sound Preset</option>
-                            <option value="upload">📁 Upload Audio File (MP3 / WAV / OGG)</option>
+                            <option value="upload">📁 Upload from my PC (MP3 / WAV / OGG)</option>
                             <option value="url">🔗 Direct Audio URL</option>
                         </select>
                     </div>
@@ -741,7 +771,7 @@
 
                     <!-- Upload Options -->
                     <div class="form-group" id="sbGroupUpload" style="display: none;">
-                        <label>Upload Audio File (.mp3, .wav, .ogg, .m4a)</label>
+                        <label>Upload Audio File (.mp3, .wav, .ogg, .m4a, up to 4 MB)</label>
                         <input type="file" id="sbFileInput" accept="audio/*" style="font-size: 0.85rem;">
                         <span id="sbUploadStatus" style="font-size: 0.75rem; color: var(--accent); display: block; margin-top: 4px;"></span>
                     </div>
