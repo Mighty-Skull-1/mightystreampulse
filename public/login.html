@@ -517,6 +517,18 @@
                 </button>
             </div>
 
+            <p style="text-align:center; font-size:.82rem; color:#a1a1aa; margin: 14px 0 6px;">
+                Moderating for a streamer?
+                <a href="#" id="lfModLoginLink" style="color:#00f0ff; font-weight:700;">Log in to the Mod Panel</a>
+            </p>
+            <script>
+                document.getElementById('lfModLoginLink').addEventListener('click', function (e) {
+                    e.preventDefault();
+                    localStorage.setItem('lf_after_login', 'mod');
+                    document.getElementById('btnConnectTwitch').click();
+                });
+            </script>
+
             <!-- Secondary: X & Kick -->
             <div class="connect-row-secondary">
                 <button class="btn-circle-connect" id="btnConnectX" title="Connect with X (Twitter)" onclick="alert('X / Twitter broadcasts coming in next update!')">

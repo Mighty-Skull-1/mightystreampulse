@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mod Panel - LightFeed</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body { background: var(--bg-base); color: var(--text-primary); margin: 0; min-height: 100vh; }
+        .mp-wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+        .mp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; justify-content: space-between; margin-bottom: 18px; }
+        .mp-brand { display: flex; align-items: center; gap: 12px; }
+        .mp-brand .badge { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, var(--primary), #ff2d95); color: #fff; }
+        .mp-brand h1 { font-size: 1.15rem; margin: 0; }
+        .mp-brand small { display: block; color: var(--accent); font-weight: 700; letter-spacing: .08em; font-size: .68rem; }
+        .mp-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .mp-right select { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 9px 10px; font-weight: 700; }
+        .mp-pill { padding: 6px 12px; border-radius: 999px; font-size: .78rem; font-weight: 800; background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-secondary); }
+        .mp-pill.ok { color: #4ade80; border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.12); }
+        .mp-pill.off { color: #fbbf24; border-color: rgba(245,158,11,.5); background: rgba(245,158,11,.12); }
+        .mp-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+        .mp-tab { background: var(--bg-card); border: 1px solid var(--border-subtle); color: var(--text-secondary); border-radius: 10px; padding: 10px 16px; font-weight: 700; cursor: pointer; }
+        .mp-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .mp-section { display: none; }
+        .mp-section.active { display: block; }
+        .mp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+        .mp-grid .action-card { cursor: pointer; }
+        .mp-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+        .mp-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 18px; }
+        .mp-card h3 { margin: 0 0 12px; font-size: 1rem; }
+        .mp-card label { display: block; font-size: .78rem; color: var(--text-secondary); margin: 10px 0 6px; font-weight: 600; }
+        .mp-card input, .mp-card select { width: 100%; box-sizing: border-box; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; }
+        .mp-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .mp-row .btn { flex: 1; justify-content: center; }
+        .mp-state { margin-left: 8px; }
+        .mp-msg { text-align: center; padding: 60px 16px; color: var(--text-secondary); }
+        .mp-msg i { font-size: 2.4rem; color: var(--accent); margin-bottom: 12px; display: block; }
+        .mp-msg code { background: var(--bg-card); padding: 2px 8px; border-radius: 6px; color: var(--text-primary); }
+        .mp-banner { margin-bottom: 16px; padding: 10px 14px; border-radius: 10px; font-weight: 600; font-size: .88rem; background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.4); display: none; }
+        #mpToasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+        .mp-toast { background: var(--bg-card); border: 1px solid var(--accent); color: var(--text-primary); padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: .88rem; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+        .mp-toast.err { border-color: #f87171; color: #fca5a5; }
+        .mp-hype { margin-left: auto; }
+    </style>
+</head>
+<body>
+<div class="mp-wrap">
+    <div class="mp-top">
+        <div class="mp-brand">
+            <div class="badge"><i class="fa-solid fa-user-shield"></i></div>
+            <div><h1>LightFeed Mod Panel</h1><small id="mpWho">LOADING…</small></div>
+        </div>
+        <div class="mp-right" id="mpRight" style="display:none">
+            <select id="mpChannel" title="Channel you're managing"></select>
+            <span id="mpOnline" class="mp-pill">Checking…</span>
+            <button id="mpHype" class="btn btn-hype"><i class="fa-solid fa-wand-magic-sparkles"></i> Hype Train</button>
+            <a href="index.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> My dashboard</a>
+        </div>
+    </div>
+
+    <div id="mpBody"><div class="mp-msg"><i class="fa-solid fa-spinner fa-spin"></i>Loading…</div></div>
+
+    <div id="mpMain" style="display:none">
+        <div id="mpOffline" class="mp-banner"><i class="fa-solid fa-plug-circle-xmark"></i> The streamer's LightFeed dashboard isn't open right now. Buttons will work once they open it.</div>
+        <div class="mp-tabs">
+            <button class="mp-tab active" data-sec="deck"><i class="fa-solid fa-gamepad"></i> Stream Deck</button>
+            <button class="mp-tab" data-sec="sounds"><i class="fa-solid fa-volume-high"></i> Soundboard</button>
+            <button class="mp-tab" data-sec="games"><i class="fa-solid fa-dice"></i> Polls &amp; Giveaways</button>
+            <button class="mp-tab" data-sec="mod"><i class="fa-solid fa-shield-halved"></i> Mod Desk</button>
+        </div>
+
+        <section class="mp-section active" id="sec-deck"><div class="mp-grid" id="mpDeck"></div></section>
+        <section class="mp-section" id="sec-sounds"><div class="sb-pad-grid" id="mpSounds"></div><p class="sb-footnote">Sounds play on the streamer's PC.</p></section>
+
+        <section class="mp-section" id="sec-games">
+            <div class="mp-games">
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-chart-pie" style="color: var(--accent)"></i> Live Chat Poll</h3>
+                    <label>Question</label><input id="mpPollQ" maxlength="200" placeholder="e.g. Which game next?">
+                    <label>Options (comma separated)</label><input id="mpPollO" maxlength="300" placeholder="e.g. Minecraft, Fortnite, Valorant">
+                    <div class="mp-row">
+                        <button class="btn btn-primary" id="mpPollStart"><i class="fa-solid fa-play"></i> Launch Poll</button>
+                        <button class="btn btn-secondary" id="mpPollEnd"><i class="fa-solid fa-stop"></i> End Poll</button>
+                    </div>
+                </div>
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-gift" style="color: #ff5aad"></i> Chat Giveaway</h3>
+                    <label>Entry keyword</label><input id="mpGiveKey" maxlength="30" value="!win">
+                    <div class="mp-row">
+                        <button class="btn btn-primary" id="mpGiveStart"><i class="fa-solid fa-bullhorn"></i> Start</button>
+                        <button class="btn btn-hype" id="mpGivePick"><i class="fa-solid fa-trophy"></i> Pick Winner</button>
+                        <button class="btn btn-secondary" id="mpGiveReset">Reset</button>
+                    </div>
+                </div>
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-brain" style="color: #4ade80"></i> Chat Trivia</h3>
+                    <label>Question</label><input id="mpTrivQ" maxlength="200" placeholder="e.g. What year was Minecraft released?">
+                    <label>Answer</label><input id="mpTrivA" maxlength="80" placeholder="e.g. 2011">
+                    <div class="mp-row"><button class="btn btn-primary" id="mpTrivStart"><i class="fa-solid fa-flag-checkered"></i> Launch Trivia</button></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="mp-section" id="sec-mod">
+            <p class="muted-note" style="margin: 0 0 14px;">These use your own Twitch mod powers, so you need to be a mod in this channel's Twitch chat.</p>
+            <div class="mp-games">
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-face-smile" style="color: #fbbf24"></i> Emote-Only <span class="mod-state-pill mp-state" id="stEmote">…</span></h3>
+                    <div class="mp-row"><button class="btn btn-secondary" data-set="emote_mode:true">Enable</button><button class="btn btn-secondary" data-set="emote_mode:false">Disable</button></div>
+                </div>
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-gauge" style="color: var(--accent)"></i> Slow Mode <span class="mod-state-pill mp-state" id="stSlow">…</span></h3>
+                    <select id="mpSlowSec"><option value="3">3 seconds</option><option value="10">10 seconds</option><option value="30" selected>30 seconds</option><option value="60">1 minute</option><option value="120">2 minutes</option></select>
+                    <div class="mp-row"><button class="btn btn-secondary" data-set="slow_mode:true">Enable</button><button class="btn btn-secondary" data-set="slow_mode:false">Disable</button></div>
+                </div>
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-star" style="color: var(--primary)"></i> Sub-Only <span class="mod-state-pill mp-state" id="stSub">…</span></h3>
+                    <div class="mp-row"><button class="btn btn-secondary" data-set="subscriber_mode:true">Enable</button><button class="btn btn-secondary" data-set="subscriber_mode:false">Disable</button></div>
+                </div>
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-user-slash" style="color: #f87171"></i> Timeout a chatter</h3>
+                    <input id="mpToUser" placeholder="Username (no @)" maxlength="25">
+                    <select id="mpToDur" style="margin-top: 8px;"><option value="60">1 minute</option><option value="600" selected>10 minutes</option><option value="3600">1 hour</option><option value="86400">1 day</option></select>
+                    <div class="mp-row"><button class="btn btn-secondary" id="mpTimeout"><i class="fa-solid fa-ban"></i> Timeout</button></div>
+                </div>
+                <div class="mp-card">
+                    <h3><i class="fa-solid fa-trash-can" style="color: #f87171"></i> Clear Chat</h3>
+                    <p class="muted-note" style="margin: 0;">Wipes all recent messages in this channel.</p>
+                    <div class="mp-row"><button class="btn btn-danger" id="mpClear"><i class="fa-solid fa-broom"></i> Clear Chat</button></div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+<div id="mpToasts"></div>
+<script src="mod.js"></script>
+</body>
+</html>

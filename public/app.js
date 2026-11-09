@@ -3065,6 +3065,17 @@ async function checkOAuthRedirect() {
 
 // Load Saved LocalStorage Credentials
 async function initApp() {
+    // A mod logged in from the Mod Panel: send them back there
+    try {
+        if (localStorage.getItem('lf_after_login') === 'mod' && !window.location.hash.includes('access_token=')) {
+            const pid = localStorage.getItem('msp_active_profile');
+            if (pid && localStorage.getItem(`msp_${pid}_oauth`)) {
+                localStorage.removeItem('lf_after_login');
+                window.location.href = 'mod.html';
+                return;
+            }
+        }
+    } catch (e) {}
     const oauthHandled = await checkOAuthRedirect();
     if (oauthHandled) {
         return;
@@ -3828,3 +3839,215 @@ function pointsRedeemed(user, title, cost, input) {
         sendChatMessage(`🎁 CHANNEL POINTS: ${user} redeemed "${title.replace(/"/g, "'")}"${clean ? ' — ' + clean : ''}`);
     }
 }
+
+
+// ==========================================
+// Mods: share setup, manage mods, run actions mods send
+// ==========================================
+const TEAM_API = '/.netlify/functions/team';
+const team = { mods: [], timer: null, pushTimer: null, active: false, me: '' };
+
+async function teamFetch(path, opts) {
+    const h = twitchAuthHeader();
+    if (!h) throw new Error('Log in with Twitch first.');
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers || {}, h, opts.body ? { 'Content-Type': 'application/json' } : {});
+    const r = await fetch(TEAM_API + path, opts);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Something went wrong. Try again.');
+    return d;
+}
+
+function sharedSetup() {
+    let theme = null;
+    try { theme = loadTheme(); } catch (e) {}
+    return {
+        deck: (deckButtons || []).map(b => ({ id: b.id, title: b.title, category: b.category, icon: b.icon, message: b.message })),
+        soundboard: (soundboardSounds || []).map(x => ({ id: x.id, name: x.name, icon: x.icon, category: x.category })),
+        theme
+    };
+}
+function pushSharedSetupSoon() {
+    if (!team.mods.length) return;
+    clearTimeout(team.pushTimer);
+    team.pushTimer = setTimeout(() => {
+        teamFetch('', { method: 'POST', body: JSON.stringify({ op: 'shared', data: sharedSetup() }) }).catch(e => console.warn('[LightFeed] share failed', e));
+    }, 1500);
+}
+// Re-share whenever buttons, sounds or theme are saved
+(function hookSharedSaves() {
+    const orig = Storage.prototype.setItem;
+    const watched = ['buttons', 'soundboard', 'theme'];
+    Storage.prototype.setItem = function (k, v) {
+        orig.call(this, k, v);
+        try { if (this === window.localStorage && watched.some(w => getProfileKey(w) === k)) pushSharedSetupSoon(); } catch (e) {}
+    };
+})();
+
+function renderTeam() {
+    const list = document.getElementById('teamList');
+    if (!list) return;
+    if (!team.mods.length) { list.innerHTML = '<p class="muted-note">No mods yet.</p>'; return; }
+    list.innerHTML = '';
+    team.mods.forEach(login => {
+        const row = document.createElement('div');
+        row.className = 'my-sound-row';
+        row.innerHTML = `<i class="fa-solid fa-user-shield"></i><span>${escapeHtml(login)}</span>
+            <button type="button" class="btn btn-secondary btn-sm" title="Remove"><i class="fa-solid fa-user-minus"></i> Remove</button>`;
+        row.querySelector('button').addEventListener('click', async () => {
+            if (!confirm(`Remove ${login} as a LightFeed mod?`)) return;
+            try {
+                const d = await teamFetch('', { method: 'POST', body: JSON.stringify({ op: 'remove_mod', login }) });
+                team.mods = d.mods || [];
+                renderTeam(); scheduleRelayPoll(0);
+            } catch (e) { alert(e.message); }
+        });
+        list.appendChild(row);
+    });
+}
+
+function setTeamStatus(t) { const el = document.getElementById('teamStatus'); if (el) el.textContent = t; }
+function setRelayStatus(t, state) {
+    const el = document.getElementById('teamRelayStatus');
+    if (el) { el.textContent = t; el.className = 'points-status ' + (state || ''); }
+}
+
+function logModActivity(by, text) {
+    const box = document.getElementById('teamActivity');
+    if (!box) return;
+    if (box.querySelector('.muted-note')) box.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'recent-support-row';
+    row.innerHTML = `<i class="fa-solid fa-user-shield"></i><span class="t">${new Date().toLocaleTimeString()}</span><b>${escapeHtml(by)}</b><span>${escapeHtml(text)}</span>`;
+    box.prepend(row);
+    while (box.children.length > 40) box.lastChild.remove();
+}
+
+function modToast(by, text) {
+    let wrap = document.getElementById('supportToasts');
+    if (!wrap) { wrap = document.createElement('div'); wrap.id = 'supportToasts'; document.body.appendChild(wrap); }
+    const t = document.createElement('div');
+    t.className = 'support-toast mod-toast';
+    t.innerHTML = `<i class="fa-solid fa-user-shield"></i><div><b>MOD · ${escapeHtml(by.toUpperCase())}</b><span>${escapeHtml(text)}</span></div>`;
+    wrap.appendChild(t);
+    setTimeout(() => t.classList.add('out'), 4500);
+    setTimeout(() => t.remove(), 5100);
+}
+
+function runModAction(a) {
+    if (!a || !a.type) return;
+    if (a.at && Date.now() - a.at > 2 * 60 * 1000) return; // too old, skip
+    const by = a.by || 'mod';
+    const connected = clientTmi && typeof clientTmi.readyState === 'function' && clientTmi.readyState() === 'OPEN';
+    const needsChat = ['deck', 'hype', 'poll_start', 'poll_end', 'giveaway_start', 'giveaway_pick', 'trivia'].includes(a.type);
+    if (needsChat && !connected) { logModActivity(by, `tried "${a.title || a.type}" but your bot isn't connected`); return; }
+
+    // Don't let pop-ups block the streamer's screen for mod actions
+    const realAlert = window.alert;
+    window.alert = (m) => logModActivity(by, String(m));
+    let text = '';
+    try {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        const click = (id) => { const el = document.getElementById(id); if (el) el.click(); };
+        if (a.type === 'deck') {
+            const btn = deckButtons.find(b => b.id === a.id) || deckButtons.find(b => b.title === a.title);
+            if (!btn) return;
+            sendChatMessage(btn.message); text = `pressed ${btn.title}`;
+        } else if (a.type === 'sound') {
+            const snd = soundboardSounds.find(x => x.id === a.id);
+            if (!snd) return;
+            playSoundItem(snd); text = `played ${snd.name}`;
+        } else if (a.type === 'hype') {
+            click('btnHypeTrain'); text = 'fired the Hype Train';
+        } else if (a.type === 'poll_start') {
+            set('pollQuestionInput', a.question); set('pollOptionsInput', (a.options || []).join(', '));
+            click('btnStartPoll'); text = `started a poll: ${a.question}`;
+        } else if (a.type === 'poll_end') {
+            click('btnEndPoll'); text = 'ended the poll';
+        } else if (a.type === 'giveaway_start') {
+            set('giveawayKeyword', a.keyword || '!win'); click('btnStartGiveaway'); text = `started a giveaway (${a.keyword || '!win'})`;
+        } else if (a.type === 'giveaway_pick') {
+            click('btnPickWinner'); text = 'picked a giveaway winner';
+        } else if (a.type === 'giveaway_reset') {
+            click('btnEndGiveaway'); text = 'reset the giveaway';
+        } else if (a.type === 'trivia') {
+            set('triviaQuestion', a.question); set('triviaAnswer', a.answer); click('btnStartTrivia'); text = 'started trivia';
+        }
+    } finally {
+        setTimeout(() => { window.alert = realAlert; }, 0);
+    }
+    if (text) { logModActivity(by, text); modToast(by, text); }
+}
+
+function scheduleRelayPoll(ms) {
+    clearTimeout(team.timer);
+    team.timer = setTimeout(relayPoll, ms);
+}
+async function relayPoll() {
+    if (!team.mods.length) { setRelayStatus('Add a mod to turn this on.', ''); return; }
+    try {
+        const d = await teamFetch('?relay=1');
+        (d.actions || []).forEach(runModAction);
+        team.active = !!d.modsActive;
+        setRelayStatus(team.active ? '✅ A mod is online. Their presses run within a few seconds.' : '✅ Ready. Waiting for a mod to open their panel.', 'ok');
+        scheduleRelayPoll(document.hidden && !team.active ? 30000 : (team.active ? 2500 : 20000));
+    } catch (e) {
+        setRelayStatus('Couldn\'t reach LightFeed. Retrying…', 'warn');
+        scheduleRelayPoll(30000);
+    }
+}
+
+async function initTeam() {
+    const link = document.getElementById('teamModLink');
+    if (link) link.value = location.origin + '/mod.html';
+    if (!twitchAuthHeader()) return;
+    try {
+        const mine = await teamFetch('?mine=1');
+        team.me = mine.owner; team.mods = mine.mods || [];
+        renderTeam();
+        if (team.mods.length) {
+            teamFetch('', { method: 'POST', body: JSON.stringify({ op: 'shared', data: sharedSetup() }) }).catch(() => {});
+            scheduleRelayPoll(1000);
+        }
+    } catch (e) { setTeamStatus(e.message); }
+    // Show "Mod Panel" if this account moderates for someone
+    try {
+        const m = await teamFetch('?managed=1');
+        const b = document.getElementById('btnOpenModPanel');
+        if (b && m.channels && m.channels.length) b.style.display = '';
+    } catch (e) {}
+}
+
+(function setupTeamUI() {
+    const input = document.getElementById('teamAddInput');
+    const add = document.getElementById('btnTeamAdd');
+    const copy = document.getElementById('btnTeamCopy');
+    if (add) {
+        const doAdd = async () => {
+            const login = (input.value || '').trim().replace(/^@/, '');
+            if (!login) return;
+            add.disabled = true; setTeamStatus('Adding…');
+            try {
+                const d = await teamFetch('', { method: 'POST', body: JSON.stringify({ op: 'add_mod', login }) });
+                const first = !team.mods.length;
+                team.mods = d.mods || [];
+                input.value = '';
+                setTeamStatus(`✅ ${login} added. Send them the link below.`);
+                renderTeam();
+                await teamFetch('', { method: 'POST', body: JSON.stringify({ op: 'shared', data: sharedSetup() }) }).catch(() => {});
+                if (first) scheduleRelayPoll(500);
+            } catch (e) { setTeamStatus('⚠️ ' + e.message); }
+            add.disabled = false;
+        };
+        add.addEventListener('click', doAdd);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+    }
+    if (copy) copy.addEventListener('click', () => {
+        const el = document.getElementById('teamModLink');
+        el.select(); navigator.clipboard && navigator.clipboard.writeText(el.value);
+        copy.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+        setTimeout(() => { copy.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 1500);
+    });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && team.mods.length) scheduleRelayPoll(300); });
+    setTimeout(initTeam, 1200);
+})();

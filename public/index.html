@@ -46,6 +46,7 @@
                 <button class="nav-btn" data-tab="tab-overlay"><i class="fa-solid fa-video"></i> OBS Overlay Setup</button>
                 <button class="nav-btn" data-tab="tab-alerts"><i class="fa-solid fa-bell"></i> Sub &amp; Bits Alerts</button>
                 <button class="nav-btn" data-tab="tab-theme"><i class="fa-solid fa-palette"></i> Theme</button>
+                <button class="nav-btn" data-tab="tab-team"><i class="fa-solid fa-user-shield"></i> Mods</button>
             </nav>
 
             <!-- TTS Voice Toggle -->
@@ -100,6 +101,7 @@
                     <div class="user-profile-badge" id="userProfileBadge" title="Current Active Streamer Profile">
                         <i class="fa-solid fa-circle-user"></i>
                         <span id="activeAccountName">Loading Profile...</span>
+                        <a href="mod.html" id="btnOpenModPanel" class="btn-text" style="display:none; margin-right: 10px;" title="Channels you help moderate"><i class="fa-solid fa-user-shield"></i> Mod Panel</a>
                         <a href="login.html" class="btn-text" title="Switch Account or Logout"><i class="fa-solid fa-right-from-bracket"></i> Switch / Exit</a>
                     </div>
                     <button id="btnHypeTrain" class="btn btn-hype"><i class="fa-solid fa-wand-magic-sparkles"></i> Hype Train Alert</button>
@@ -467,6 +469,42 @@
                 </div>
 
                 <!-- Tab 6: OBS Overlay Setup -->
+                <div class="tab-content" id="tab-team">
+                    <div class="panel-inner settings-max-width">
+                        <div class="section-banner">
+                            <div>
+                                <h2>Mods</h2>
+                                <p>Let your mods run your Stream Deck, soundboard, polls, giveaways and Mod Desk from their own Twitch login. They can't change your settings.</p>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3><i class="fa-solid fa-user-plus" style="color: var(--accent);"></i> Add a mod</h3>
+                            <div class="team-add-row">
+                                <input type="text" id="teamAddInput" placeholder="Their Twitch username" autocomplete="off">
+                                <button id="btnTeamAdd" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add</button>
+                            </div>
+                            <p id="teamStatus" class="upload-status"></p>
+                            <div id="teamList" class="team-list"></div>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 16px;">
+                            <h3><i class="fa-solid fa-link" style="color: var(--primary);"></i> Send your mods this link</h3>
+                            <div class="team-add-row">
+                                <input type="text" id="teamModLink" readonly>
+                                <button id="btnTeamCopy" class="btn btn-secondary"><i class="fa-solid fa-copy"></i> Copy</button>
+                            </div>
+                            <p class="muted-note" style="margin-top: 10px;">They log in with their own Twitch account and pick your channel. Keep this dashboard open while you stream: their button presses run from here, through your bot. For the Mod Desk, they also need to be a mod in your Twitch chat.</p>
+                        </div>
+
+                        <div class="settings-card" style="margin-top: 16px;">
+                            <h3><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent);"></i> Mod activity</h3>
+                            <p id="teamRelayStatus" class="points-status">Add a mod to turn this on.</p>
+                            <div id="teamActivity" class="recent-support-list"><p class="muted-note">Nothing yet.</p></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="tab-content" id="tab-theme">
                     <div class="panel-inner settings-max-width">
                         <div class="section-banner">
