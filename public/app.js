@@ -655,7 +655,7 @@ function appendChatMessage(data) {
     chatFeed.appendChild(row);
     chatFeed.scrollTop = chatFeed.scrollHeight;
 
-    if (data.isReward) playFx('ding');
+    if (data.isReward && !(typeof pointsFeedLive === 'function' && pointsFeedLive())) playFx('ding');
 }
 
 function escapeHtml(text) {
@@ -962,6 +962,7 @@ async function connectClientTmi(username, oauth, channel, isAutoReconnect = fals
 
     clientTmi.on('connected', () => {
         if (isStale()) return;
+        setTimeout(() => { try { startPointsFeed(); } catch (e) {} }, 800);
         setTimeout(refreshModState, 1500);
         missedPings = 0;
         reconnectBackoffMs = 2000;
@@ -1695,6 +1696,7 @@ function buildOverlayUrl() {
             if (!al.overlaySound) url += '&sound=0';
             else if (Math.abs(al.overlayVolume - 0.8) > 0.001) url += '&volume=' + al.overlayVolume.toFixed(2);
             if (al.overlayTts) url += '&tts=1';
+            if (al.pointsAnnounce) url += '&pts=1';
             Object.entries(al.sounds || {}).forEach(([k, v]) => {
                 if (isValidSoundUrl(v) && canUseSound(v)) url += '&snd_' + k + '=' + encodeURIComponent(v.trim());
             });
@@ -3360,7 +3362,8 @@ function syncThemeControls(t) {
 // Sub / bits / gift / raid alerts on the dashboard
 // ==========================================
 const DEFAULT_ALERTS = { dashSound: true, dashVolume: 0.8, overlaySound: true, overlayVolume: 0.8, overlayTts: false,
-                         sounds: { sub: '', bits: '', gift: '', raid: '' } };
+                         pointsDash: true, pointsAnnounce: false,
+                         sounds: { sub: '', bits: '', gift: '', raid: '', points: '' } };
 // Each streamer's own uploaded clips (stored on Netlify, tied to their Twitch login)
 let mySounds = [];   // [{ id, name, url }]
 const SOUND_API = '/.netlify/functions/sounds';
@@ -3430,8 +3433,8 @@ function saveAlertSettings(a) {
     try { refreshOverlayUrl(); } catch (e) {}
 }
 
-const SUPPORT_SOUNDS = { sub: 'victory', bits: 'coin', gift: 'hype', raid: 'airhorn' };
-const SUPPORT_ICONS = { sub: 'fa-star', bits: 'fa-gem', gift: 'fa-gift', raid: 'fa-people-group' };
+const SUPPORT_SOUNDS = { sub: 'victory', bits: 'coin', gift: 'hype', raid: 'airhorn', points: 'ding' };
+const SUPPORT_ICONS = { sub: 'fa-star', bits: 'fa-gem', gift: 'fa-gift', raid: 'fa-people-group', points: 'fa-coins' };
 
 function dashboardSupportAlert(kind, title, text) {
     const al = loadAlertSettings();
@@ -3441,10 +3444,10 @@ function dashboardSupportAlert(kind, title, text) {
             playAlertClip(custom, al.dashVolume, () => playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume));
         } else {
             playSynthesizedSound(SUPPORT_SOUNDS[kind] || 'ding', al.dashVolume);
-            if (kind !== 'bits') setTimeout(() => playSynthesizedSound('applause', al.dashVolume * 0.7), 700);
+            if (kind !== 'bits' && kind !== 'points') setTimeout(() => playSynthesizedSound('applause', al.dashVolume * 0.7), 700);
         }
     }
-    try { triggerConfetti(); } catch (e) {}
+    if (kind !== 'points') { try { triggerConfetti(); } catch (e) {} }
 
     // Toast
     let wrap = document.getElementById('supportToasts');
@@ -3538,7 +3541,7 @@ function attachSupportAlertHandlers(client, isStale) {
     $('alertOverlaySound').checked = al.overlaySound;
     $('alertOverlayVolume').value = Math.round(al.overlayVolume * 100);
     $('alertOverlayTts').checked = al.overlayTts;
-    const KINDS = ['sub', 'bits', 'gift', 'raid'];
+    const KINDS = ['sub', 'bits', 'gift', 'raid', 'points'];
     const fileInput = $('alertSoundFile');
     let uploadTarget = null;
 
@@ -3636,9 +3639,13 @@ function attachSupportAlertHandlers(client, isStale) {
         overlaySound: $('alertOverlaySound').checked,
         overlayVolume: $('alertOverlayVolume').value / 100,
         overlayTts: $('alertOverlayTts').checked,
+        pointsDash: $('alertPointsDash').checked,
+        pointsAnnounce: $('alertPointsAnnounce').checked,
         sounds: Object.fromEntries(KINDS.map(k => [k, soundValue(k)]))
     });
-    ['alertDashSound', 'alertOverlaySound', 'alertOverlayTts'].forEach(id => $(id).addEventListener('change', save));
+    $('alertPointsDash').checked = al.pointsDash;
+    $('alertPointsAnnounce').checked = al.pointsAnnounce;
+    ['alertDashSound', 'alertOverlaySound', 'alertOverlayTts', 'alertPointsDash', 'alertPointsAnnounce'].forEach(id => $(id).addEventListener('change', save));
     fillAllPickers();
     loadMySounds().then(fillAllPickers);
     ['alertDashVolume', 'alertOverlayVolume'].forEach(id => $(id).addEventListener('change', save));
@@ -3647,7 +3654,8 @@ function attachSupportAlertHandlers(client, isStale) {
         btnTestSub:  ['sub',  'NEW SUB',   'TestViewer subscribed!',               'SUB'],
         btnTestBits: ['bits', 'BITS',      'TestViewer cheered 500 bits!',         'BITS'],
         btnTestGift: ['gift', 'GIFT BOMB', 'TestViewer gifted 5 subs!',            'GIFT'],
-        btnTestRaid: ['raid', 'RAID',      'TestStreamer is raiding with 42 viewers!', 'RAID']
+        btnTestRaid: ['raid', 'RAID',      'TestStreamer is raiding with 42 viewers!', 'RAID'],
+        btnTestPoints: ['points', 'CHANNEL POINTS', 'TestViewer redeemed Hydrate! (500 pts)', 'POINTS']
     };
     Object.entries(tests).forEach(([id, t]) => {
         const b = $(id);
@@ -3664,3 +3672,159 @@ function attachSupportAlertHandlers(client, isStale) {
         });
     });
 })();
+
+
+// ==========================================
+// Channel Points redemptions (Twitch EventSub over WebSocket)
+// Catches every redemption, including rewards with no message.
+// ==========================================
+const pointsFeed = { ws: null, sessionId: null, keepaliveMs: 30000, lastMsg: 0, retryMs: 2000, timer: null, watchdog: null, seen: [], live: false, stopped: false };
+function pointsFeedLive() { return pointsFeed.live; }
+
+function setPointsStatus(text, state) {
+    const el = document.getElementById('pointsFeedStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'points-status ' + (state || '');
+}
+
+function stopPointsFeed() {
+    pointsFeed.stopped = true;
+    pointsFeed.live = false;
+    clearTimeout(pointsFeed.timer);
+    clearInterval(pointsFeed.watchdog);
+    if (pointsFeed.ws) { try { pointsFeed.ws.close(); } catch (e) {} }
+    pointsFeed.ws = null;
+}
+
+async function startPointsFeed() {
+    if (pointsFeed.ws && (pointsFeed.ws.readyState === 0 || pointsFeed.ws.readyState === 1)) return;
+    pointsFeed.stopped = false;
+    let auth;
+    try { auth = await getHelixAuthContext(); } catch (e) { setPointsStatus('Log in with Twitch to turn on channel point alerts.', 'warn'); return; }
+    if (!auth.userId || auth.userId !== auth.broadcasterId) {
+        setPointsStatus('Channel point alerts only work when you log in as the channel owner.', 'warn');
+        return;
+    }
+    // Check the token has permission to read redemptions
+    try {
+        const v = await fetch('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: 'OAuth ' + auth.token } });
+        const vd = await v.json();
+        if (!v.ok || !(vd.scopes || []).includes('channel:read:redemptions')) {
+            setPointsStatus('Click "Switch / Exit" and log in with Twitch again to turn on channel point alerts.', 'warn');
+            return;
+        }
+    } catch (e) {}
+    openPointsSocket('wss://eventsub.wss.twitch.tv/ws?keepalive_timeout_seconds=30', auth, false);
+}
+
+function openPointsSocket(url, auth, isReconnect) {
+    setPointsStatus('Connecting to Twitch…', '');
+    const ws = new WebSocket(url);
+    const old = pointsFeed.ws;
+    pointsFeed.ws = ws;
+    ws.onmessage = async (ev) => {
+        if (ws !== pointsFeed.ws) return;
+        pointsFeed.lastMsg = Date.now();
+        let m;
+        try { m = JSON.parse(ev.data); } catch (e) { return; }
+        const type = m.metadata && m.metadata.message_type;
+        if (type === 'session_welcome') {
+            pointsFeed.sessionId = m.payload.session.id;
+            pointsFeed.keepaliveMs = (m.payload.session.keepalive_timeout_seconds || 30) * 1000;
+            if (old && old !== ws) { try { old.close(); } catch (e) {} }
+            if (!isReconnect) {
+                const ok = await subscribePoints(auth, pointsFeed.sessionId);
+                if (!ok) { try { ws.close(); } catch (e) {} return; }
+            }
+            pointsFeed.live = true;
+            pointsFeed.retryMs = 2000;
+            setPointsStatus('✅ Listening for channel point redemptions', 'ok');
+            clearInterval(pointsFeed.watchdog);
+            pointsFeed.watchdog = setInterval(() => {
+                if (pointsFeed.ws === ws && Date.now() - pointsFeed.lastMsg > pointsFeed.keepaliveMs + 10000) {
+                    try { ws.close(); } catch (e) {}
+                }
+            }, 5000);
+        } else if (type === 'session_reconnect') {
+            openPointsSocket(m.payload.session.reconnect_url, auth, true);
+        } else if (type === 'notification') {
+            const id = m.metadata.message_id;
+            if (pointsFeed.seen.includes(id)) return;
+            pointsFeed.seen.push(id);
+            if (pointsFeed.seen.length > 100) pointsFeed.seen.shift();
+            handlePointsEvent(m.metadata.subscription_type, m.payload.event || {});
+        } else if (type === 'revocation') {
+            setPointsStatus('Twitch turned off channel point alerts. Log in again to turn them back on.', 'warn');
+        }
+    };
+    ws.onclose = () => {
+        if (ws !== pointsFeed.ws) return;
+        pointsFeed.live = false;
+        clearInterval(pointsFeed.watchdog);
+        if (pointsFeed.stopped) return;
+        setPointsStatus('Reconnecting to Twitch…', '');
+        clearTimeout(pointsFeed.timer);
+        pointsFeed.timer = setTimeout(() => { pointsFeed.ws = null; startPointsFeed(); }, pointsFeed.retryMs);
+        pointsFeed.retryMs = Math.min(pointsFeed.retryMs * 2, 60000);
+    };
+}
+
+async function subscribePoints(auth, sessionId) {
+    const sub = async (type, version) => {
+        const r = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+            method: 'POST',
+            headers: { 'Client-ID': auth.clientId, 'Authorization': 'Bearer ' + auth.token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, version, condition: { broadcaster_user_id: auth.broadcasterId }, transport: { method: 'websocket', session_id: sessionId } })
+        });
+        return r.status;
+    };
+    const status = await sub('channel.channel_points_custom_reward_redemption.add', '1');
+    if (status === 401 || status === 403) {
+        pointsFeed.stopped = true;
+        setPointsStatus('Click "Switch / Exit" and log in with Twitch again to turn on channel point alerts.', 'warn');
+        return false;
+    }
+    if (status !== 202 && status !== 409) {
+        setPointsStatus('Twitch wouldn\'t start channel point alerts right now (error ' + status + '). Retrying…', 'warn');
+        return false;
+    }
+    // Built-in rewards (Highlight my message, unlock an emote…) - optional
+    try { await sub('channel.channel_points_automatic_reward_redemption.add', '2'); } catch (e) {}
+    return true;
+}
+
+const AUTO_REWARD_NAMES = {
+    send_highlighted_message: 'Highlight My Message', single_message_bypass_sub_mode: 'Send a Message in Sub-Only Mode',
+    send_animated_message: 'Animated Message', chosen_sub_emote_unlock: 'Unlock a Sub Emote',
+    random_sub_emote_unlock: 'Unlock a Random Sub Emote', chosen_modified_sub_emote_unlock: 'Modify an Emote',
+    gigantify_an_emote: 'Gigantify an Emote', celebration: 'On-Screen Celebration'
+};
+
+function handlePointsEvent(subType, e) {
+    let user = e.user_name || e.user_login || 'Someone';
+    let title, cost, input;
+    if (subType === 'channel.channel_points_custom_reward_redemption.add') {
+        title = (e.reward && e.reward.title) || 'a reward';
+        cost = e.reward && e.reward.cost;
+        input = (e.user_input || '').trim();
+    } else {
+        const rt = (e.reward && e.reward.type) || '';
+        title = AUTO_REWARD_NAMES[rt] || rt.replace(/_/g, ' ') || 'a reward';
+        cost = (e.reward && (e.reward.channel_points || e.reward.cost)) || null;
+        input = ((e.message && e.message.text) || '').trim();
+    }
+    pointsRedeemed(user, title, cost, input);
+}
+
+function pointsRedeemed(user, title, cost, input) {
+    const al = loadAlertSettings();
+    const costTxt = cost ? ` (${Number(cost).toLocaleString()} pts)` : '';
+    if (al.pointsDash) {
+        dashboardSupportAlert('points', 'CHANNEL POINTS', `${user} redeemed ${title}${costTxt}${input ? ': ' + input : ''}`);
+    }
+    if (al.pointsAnnounce && clientTmi && typeof clientTmi.readyState === 'function' && clientTmi.readyState() === 'OPEN') {
+        const clean = (input || '').replace(/\s+/g, ' ').slice(0, 200);
+        sendChatMessage(`🎁 CHANNEL POINTS: ${user} redeemed "${title.replace(/"/g, "'")}"${clean ? ' — ' + clean : ''}`);
+    }
+}

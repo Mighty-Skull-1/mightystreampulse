@@ -250,6 +250,7 @@
         const CHANNEL = (params.get('channel') || '').toLowerCase().replace(/^#/, '').trim();
         const BOT = (params.get('bot') || CHANNEL).toLowerCase().replace(/^#/, '').trim();
         const SHOW_CHAT = params.get('chat') !== '0';
+        const POINTS_FROM_BOT = params.get('pts') === '1'; // dashboard announces every redemption
 
         // Streamer theme colours from the link (?primary=hex&accent=hex)
         const THEME = { primary: '#9146ff', accent: '#00f0ff' };
@@ -317,7 +318,7 @@
         // Custom clip per alert type: &snd_sub=<url or /sounds/file.mp3>
         // Uploaded clips only play on the channel of the streamer who uploaded them
         const CUSTOM_SOUNDS = {};
-        ['sub', 'bits', 'gift', 'raid'].forEach(k => {
+        ['sub', 'bits', 'gift', 'raid', 'points'].forEach(k => {
             const v = (params.get('snd_' + k) || '').trim();
             const up = /^\/\.netlify\/functions\/sounds\?owner=([a-z0-9_]+)&id=[a-f0-9]{32}$/.exec(v);
             if (up) { if (up[1] === CHANNEL || up[1] === BOT) CUSTOM_SOUNDS[k] = v; return; }
@@ -344,7 +345,9 @@
             try {
                 actx = actx || new (window.AudioContext || window.webkitAudioContext)();
                 if (actx.state === 'suspended') actx.resume();
-                if (kind === 'bits') {          // coin shower
+                if (kind === 'points') {        // soft chime
+                    [1047, 1319, 1568].forEach((f, i) => tone(f, i * 0.09, 0.5, 'sine', 0.3));
+                } else if (kind === 'bits') {   // coin shower
                     [988, 1319, 1568, 1976, 2637].forEach((f, i) => tone(f, i * 0.07, 0.35, 'square', 0.12));
                 } else if (kind === 'gift') {   // sparkle run
                     [784, 988, 1175, 1568, 1976, 2349, 3136].forEach((f, i) => tone(f, i * 0.06, 0.4, 'triangle', 0.22));
@@ -370,15 +373,15 @@
             if (!alertShowing) nextAlert();
         }
         function runSupportAlert(a) {
-            const icons = { bits: 'fa-gem', gift: 'fa-gift', raid: 'fa-people-group', sub: 'fa-star' };
+            const icons = { bits: 'fa-gem', gift: 'fa-gift', raid: 'fa-people-group', sub: 'fa-star', points: 'fa-coins' };
             document.getElementById('supportIcon').className = 'fa-solid ' + (icons[a.kind] || 'fa-star') + ' s-icon';
             document.getElementById('supportKicker').textContent = a.kicker;
             document.getElementById('supportTitle').innerHTML = `<span class="who">${esc(a.who)}</span> ${esc(a.rest)}`;
             document.getElementById('supportMsg').textContent = a.message ? '“' + a.message + '”' : '';
             const box = document.getElementById('supportAlert');
             box.classList.add('show');
-            confetti();
-            const hold = a.message ? 9000 : 7000;
+            if (a.kind !== 'points') confetti();
+            const hold = a.kind === 'points' ? (a.message ? 7000 : 5000) : (a.message ? 9000 : 7000);
             // read the viewer's message once the alert sound has finished
             playAlertSound(a.kind, (wait) => setTimeout(() => speak(a.message), wait));
             setTimeout(() => { box.classList.remove('show'); setTimeout(nextAlert, 700); }, hold);
@@ -501,6 +504,10 @@
                 showAlert('TRIVIA WINNER', `@${m[1]} got it: ${m[2]}`, 'trivia'); confetti(); return;
             }
             if (/HYPE TRAIN|CELEBRATION ACTIVATED/i.test(msg)) { showAlert('HYPE!', "Let's go chat! 🔥", 'hype'); confetti(); return; }
+            if ((m = msg.match(/CHANNEL POINTS:\s*(\S+) redeemed "([^"]+)"(?:\s+—\s+(.*))?/))) {
+                supportAlert('points', 'CHANNEL POINTS', m[1], `redeemed ${m[2]}!`, (m[3] || '').trim()); return;
+            }
+            if (/OVERLAY TEST POINTS/i.test(msg)) { supportAlert('points', 'CHANNEL POINTS', 'TestViewer', 'redeemed Hydrate!', ''); return; }
             if (/OVERLAY TEST SUB/i.test(msg)) { supportAlert('sub', 'NEW SUB', 'TestViewer', 'just subscribed!', 'This is a test sub alert'); return; }
             if (/OVERLAY TEST BITS/i.test(msg)) { supportAlert('bits', 'CHEER', 'TestViewer', 'cheered 500 bits!', 'This is a test bits alert'); return; }
             if (/OVERLAY TEST GIFT/i.test(msg)) { supportAlert('gift', 'GIFT BOMB', 'TestViewer', 'gifted 5 subs to the community!'); return; }
@@ -533,7 +540,7 @@
                 const isReward = !!tags['custom-reward-id'] || tags['msg-id'] === 'highlighted-message';
                 if (isTrusted) handleBotMessage(message);
                 if (!isTrusted || login === CHANNEL) handleViewerMessage(login, message);
-                if (isReward) showAlert('CHANNEL POINTS', `${name}: ${message}`, 'reward');
+                if (isReward && !POINTS_FROM_BOT) showAlert('CHANNEL POINTS', `${name}: ${message}`, 'reward');
                 showChat(name, tags.color || '#9146FF', message, isReward);
             });
             const giftBombs = {}; // gifter -> remaining individual gifts to skip
