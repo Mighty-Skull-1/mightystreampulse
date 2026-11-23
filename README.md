@@ -2,7 +2,7 @@
 > **All-in-One Twitch Streamer Deck, Chatbot, Moderation Suite & OBS Overlay**
 
 [![Live Demo](https://img.shields.io/badge/Live%20App-mightystreampulse.netlify.app-9146ff?style=for-the-badge&logo=twitch&logoColor=white)](https://mightystreampulse.netlify.app)
-[![Netlify Status](https://img.shields.io/badge/Hosted%20On-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://mightystreampulse.netlify.app)
+[![Netlify Status]([https://img.shields.io/badge/Hosted%20On-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://mightystreampulse.netlify.app](https://lightfeed.netlify.app/))
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 **LightFeed** is a lightweight, responsive, and browser-first Twitch command center designed for content creators, streamers, and moderators. It combines a 1-click Stream Deck action pad, automated chatbot engine (**LightFeed Bot**), live moderation controls, custom soundboard, viewer engagement minigames, and animated OBS Studio browser overlays into a single dashboard.
