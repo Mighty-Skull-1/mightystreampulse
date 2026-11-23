@@ -60,7 +60,8 @@
         }
 
         /* Layout: controls + tabs. Side-by-side in landscape */
-        .sd-main { display: grid; gap: 14px; }
+        .sd-main { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+        .sd-main > * { min-width: 0; }
         @media (orientation: landscape) and (min-width: 640px) {
             .sd-main { grid-template-columns: minmax(220px, 32%) 1fr; align-items: start; }
             .sd-controls { position: sticky; top: 10px; grid-template-columns: 1fr !important; }
@@ -95,8 +96,52 @@
         .sd-live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 6px; vertical-align: middle; animation: sdPulse 1.2s infinite; }
 
         /* Tabs */
-        .sd-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 5px; border-radius: 14px; background: var(--bg-surface); border: 1px solid var(--border-subtle); margin-bottom: 12px; position: sticky; top: 0; z-index: 5; }
-        .sd-tab { border: 0; border-radius: 10px; padding: 11px 6px; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 800; font-size: .86rem; cursor: pointer; touch-action: manipulation; }
+        .sd-tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; padding: 4px; border-radius: 14px; background: var(--bg-surface); border: 1px solid var(--border-subtle); margin-bottom: 12px; position: sticky; top: 0; z-index: 5; }
+        .sd-tab { display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; border-radius: 10px; padding: 8px 2px; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 800; font-size: .66rem; cursor: pointer; touch-action: manipulation; min-width: 0; }
+        .sd-tab i { font-size: 1.05rem; }
+        .sd-tab span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        @media (min-width: 640px) { .sd-tab { flex-direction: row; justify-content: center; gap: 6px; font-size: .82rem; padding: 10px 4px; } }
+
+        /* Buttons / Audio / Layers */
+        .sd-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+        .sd-btn-sm { min-height: 38px; padding: 0 14px; flex: none; }
+        .sd-btn.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .sd-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 4px; scrollbar-width: none; }
+        .sd-chips::-webkit-scrollbar { display: none; }
+        .sd-chip { flex: none; border-radius: 999px; padding: 8px 12px; border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-secondary); font: inherit; font-weight: 800; font-size: .78rem; cursor: pointer; touch-action: manipulation; }
+        .sd-chip.active { border-color: var(--primary); color: #fff; background: rgba(var(--primary-rgb), .25); }
+        .sd-chip .live { color: #f87171; margin-left: 4px; }
+        .sd-group-title { grid-column: 1 / -1; font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 6px 2px -2px; }
+        .tile.toggle.on { border-color: rgba(34,197,94,.6); background: rgba(34,197,94,.12); }
+        .tile.toggle.on i { color: #4ade80; }
+        .tile.toggle.off { border-color: var(--border-subtle); opacity: .85; }
+        .tile.toggle.off i { color: var(--text-muted); }
+        .tile.toggle.muted { border-color: rgba(239,68,68,.7); background: rgba(239,68,68,.14); }
+        .tile.toggle.muted i { color: #f87171; }
+        .tile.custom { --btn: var(--primary); border-color: color-mix(in srgb, var(--btn) 55%, transparent); background: color-mix(in srgb, var(--btn) 16%, var(--bg-card)); }
+        .tile.custom i { color: var(--btn); }
+        .tile.custom.state-on { box-shadow: 0 0 0 3px color-mix(in srgb, var(--btn) 45%, transparent); }
+        .tile.custom.state-off { opacity: .6; }
+        .tile .steps { font-size: .64rem; font-weight: 800; color: var(--text-muted); letter-spacing: .04em; }
+        .tile .edit-badge { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 8px; display: none; place-items: center; background: var(--bg-card-hover); color: var(--text-primary); font-size: .7rem; }
+        .editing .tile .edit-badge { display: grid; }
+        .editing .tile.custom { animation: sdWiggle .5s ease-in-out infinite alternate; }
+        @keyframes sdWiggle { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
+        .tile.add { border-style: dashed; color: var(--text-secondary); }
+        .tile.add i { color: var(--accent); }
+
+        /* Button editor */
+        .sd-swatches, .sd-icons { display: flex; flex-wrap: wrap; gap: 8px; }
+        .sd-swatch { width: 34px; height: 34px; border-radius: 10px; border: 2px solid transparent; cursor: pointer; }
+        .sd-swatch.sel { border-color: #fff; }
+        .sd-iconpick { width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-primary); font-size: 1.05rem; cursor: pointer; }
+        .sd-iconpick.sel { border-color: var(--primary); background: rgba(var(--primary-rgb), .25); }
+        .sd-step { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: start; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 10px; margin-top: 8px; }
+        .sd-step .num { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--bg-card-hover); font-weight: 900; font-size: .8rem; margin-top: 8px; }
+        .sd-step .fields { display: grid; gap: 6px; min-width: 0; }
+        .sd-step .tools { display: flex; flex-direction: column; gap: 4px; }
+        .sd-step .tools button { width: 34px; height: 30px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-card-hover); color: var(--text-secondary); cursor: pointer; }
+        .sd-step .sd-select, .sd-step .sd-input { padding: 9px 10px; }
         .sd-tab.active { background: var(--primary); color: #fff; }
         .sd-section { display: none; }
         .sd-section.active { display: block; }
@@ -132,7 +177,8 @@
         .sd-note { font-size: .8rem; color: var(--text-secondary); margin: 0 0 12px; }
         .sd-note.warn { color: #fbbf24; }
         .sd-empty { text-align: center; padding: 30px 12px; color: var(--text-secondary); font-size: .9rem; }
-        .sd-empty i { display: block; font-size: 1.8rem; margin-bottom: 10px; color: var(--accent); }
+        .sd-empty > i { display: block; font-size: 1.8rem; margin-bottom: 10px; color: var(--accent); }
+        .sd-empty .sd-btn { padding: 0 14px; }
 
         /* Gate / messages */
         .sd-msg { text-align: center; padding: 70px 18px; color: var(--text-secondary); }
@@ -182,12 +228,32 @@
             </div>
             <div>
                 <div class="sd-tabs" role="tablist">
-                    <button class="sd-tab active" data-sec="scenes"><i class="fa-solid fa-clapperboard"></i> Scenes</button>
-                    <button class="sd-tab" data-sec="sounds"><i class="fa-solid fa-volume-high"></i> Sounds</button>
-                    <button class="sd-tab" data-sec="mod"><i class="fa-solid fa-shield-halved"></i> Mod</button>
+                    <button class="sd-tab active" data-sec="buttons"><i class="fa-solid fa-table-cells-large"></i><span>Buttons</span></button>
+                    <button class="sd-tab" data-sec="scenes"><i class="fa-solid fa-clapperboard"></i><span>Scenes</span></button>
+                    <button class="sd-tab" data-sec="audio"><i class="fa-solid fa-sliders"></i><span>Audio</span></button>
+                    <button class="sd-tab" data-sec="layers"><i class="fa-solid fa-video"></i><span>Layers</span></button>
+                    <button class="sd-tab" data-sec="sounds"><i class="fa-solid fa-volume-high"></i><span>Sounds</span></button>
+                    <button class="sd-tab" data-sec="mod"><i class="fa-solid fa-shield-halved"></i><span>Mod</span></button>
                 </div>
 
-                <section class="sd-section active" id="sec-scenes">
+                <section class="sd-section active" id="sec-buttons">
+                    <div class="sd-bar">
+                        <span class="sd-note" style="margin:0" id="sdBtnNote">Your own buttons. Each one can do several things in a row.</span>
+                        <button class="sd-btn sd-btn-sm" id="sdEditToggle"><i class="fa-solid fa-pen"></i> Edit</button>
+                    </div>
+                    <div class="sd-grid" id="sdButtons"></div>
+                </section>
+
+                <section class="sd-section" id="sec-audio">
+                    <div class="sd-grid" id="sdAudio"></div>
+                </section>
+
+                <section class="sd-section" id="sec-layers">
+                    <div class="sd-chips" id="sdLayerScenes"></div>
+                    <div class="sd-grid" id="sdLayers"></div>
+                </section>
+
+                <section class="sd-section" id="sec-scenes">
                     <div class="sd-grid" id="sdScenes"></div>
                 </section>
 
@@ -253,6 +319,37 @@
     <div class="sd-row" style="margin-top:20px">
         <a class="sd-btn" href="index.html" style="display:flex;align-items:center;justify-content:center;text-decoration:none"><i class="fa-solid fa-arrow-left"></i>&nbsp; Dashboard</a>
         <button class="sd-btn" id="sdSheetClose">Done</button>
+    </div>
+</div>
+<div class="sd-sheet-bg" id="sdEditorBg"></div>
+<div class="sd-sheet" id="sdEditor" role="dialog" aria-label="Edit button">
+    <h2 id="sdEdTitle"><i class="fa-solid fa-pen"></i> Edit button</h2>
+    <p class="sd-note">Steps run in order when you tap the button.</p>
+
+    <label for="sdEdLabel">Button name</label>
+    <input class="sd-input" id="sdEdLabel" maxlength="40" placeholder="e.g. BRB">
+
+    <label>Icon</label>
+    <div class="sd-icons" id="sdEdIcons"></div>
+
+    <label>Colour</label>
+    <div class="sd-swatches" id="sdEdColors"></div>
+
+    <label>Steps</label>
+    <div id="sdEdSteps"></div>
+    <div class="sd-row" style="margin-top:10px">
+        <select class="sd-select" id="sdEdAddType"></select>
+        <button class="sd-btn" id="sdEdAddStep" style="flex:0 0 auto;padding:0 16px"><i class="fa-solid fa-plus"></i> Add step</button>
+    </div>
+
+    <div class="sd-row" style="margin-top:20px">
+        <button class="sd-btn danger" id="sdEdDelete"><i class="fa-solid fa-trash-can"></i> Delete</button>
+        <button class="sd-btn" id="sdEdCancel">Cancel</button>
+        <button class="sd-btn primary" id="sdEdSave"><i class="fa-solid fa-check"></i> Save</button>
+    </div>
+    <div class="sd-row" id="sdEdMoveRow">
+        <button class="sd-btn" id="sdEdLeft"><i class="fa-solid fa-arrow-left"></i> Move earlier</button>
+        <button class="sd-btn" id="sdEdRight">Move later <i class="fa-solid fa-arrow-right"></i></button>
     </div>
 </div>
 <div id="sdToasts"></div>

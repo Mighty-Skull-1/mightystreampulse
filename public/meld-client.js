@@ -111,6 +111,15 @@
         return out;
     }
 
+    // Best guess at what a layer is, from the fields Meld sends
+    function layerKind(it) {
+        if ('backgroundEffectEnabled' in it) return 'camera';   // only camera layers have this
+        if (it.url) return 'browser';
+        if (it.mediaSource) return 'media';
+        if (it.source) return 'image';
+        return 'other';                                          // e.g. game/window capture, groups
+    }
+
     const BACKOFF = [1000, 2000, 4000, 8000, 15000];
     const OFFLINE_AFTER_MS = 60000;   // keep saying "reconnecting" for this long before "offline"
     const CONNECT_TIMEOUT_MS = 10000;
@@ -128,7 +137,7 @@
             this.retryTimer = null;
             this.timeoutTimer = null;
             this.lostAt = 0;
-            this.scenes = []; this.tracks = []; this.isStreaming = false; this.isRecording = false;
+            this.scenes = []; this.tracks = []; this.layers = []; this.effects = []; this.isStreaming = false; this.isRecording = false;
             window.addEventListener('online', () => this.kick());
             window.addEventListener('offline', () => { if (this.url) this._drop('Your phone is offline.'); });
             document.addEventListener('visibilitychange', () => { if (!document.hidden) this.kick(); });
@@ -209,15 +218,18 @@
         _read() {
             const m = this.meld;
             const items = (m && m.session && m.session.items) || {};
-            const scenes = [], tracks = [];
+            const scenes = [], tracks = [], layers = [], effects = [];
             Object.keys(items).forEach((id) => {
                 const it = items[id] || {};
                 if (it.type === 'scene') scenes.push({ id, name: it.name || 'Scene', index: it.index || 0, current: !!it.current, staged: !!it.staged });
-                else if (it.type === 'track') tracks.push({ id, name: it.name || 'Audio', muted: !!it.muted, global: !it.parent });
+                else if (it.type === 'track') tracks.push({ id, name: it.name || 'Audio', muted: !!it.muted, global: !it.parent, layerId: it.parent || '' });
+                else if (it.type === 'layer') layers.push({ id, name: it.name || 'Layer', sceneId: it.parent || '', index: it.index || 0, visible: !!it.visible, kind: layerKind(it) });
+                else if (it.type === 'effect') effects.push({ id, name: it.name || 'Effect', layerId: it.parent || '', enabled: !!it.enabled });
             });
             scenes.sort((a, b) => a.index - b.index);
             tracks.sort((a, b) => (b.global - a.global) || a.name.localeCompare(b.name));
-            this.scenes = scenes; this.tracks = tracks;
+            layers.sort((a, b) => a.index - b.index);
+            this.scenes = scenes; this.tracks = tracks; this.layers = layers; this.effects = effects;
             this.isStreaming = !!(m && m.isStreaming);
             this.isRecording = !!(m && m.isRecording);
         }

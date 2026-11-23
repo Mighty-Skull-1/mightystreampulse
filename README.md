@@ -155,14 +155,35 @@ From the Mod Panel they can use your Stream Deck, soundboard, polls, giveaways, 
 
 `streamdeck.html` is a phone control pad for **Meld Studio**. Open **https://lightfeed.netlify.app/streamdeck.html**, or tap **Stream Deck** next to your account name on the dashboard.
 
-It gives you big tiles that work in portrait and landscape:
+It gives you big tiles that work in portrait and landscape. **Go Live / End Stream** and **Mic** are always at the top (Go Live needs a second tap within a few seconds, so you can't end the stream by accident). Below them are six tabs:
+- **Buttons:** your own Stream Deck buttons (see below).
 - **Scenes:** loaded from Meld automatically. The scene that's on air is highlighted.
-- **Mic:** mute or unmute your mic track, with its current state.
-- **Go Live / End Stream:** needs a second tap within a few seconds, so you can't end the stream by accident.
+- **Audio:** every audio track in Meld (Mic, Discord, game audio…) with mute / unmute and its current state.
+- **Layers:** pick a scene, then turn any layer on or off: cameras, overlays, game capture. Effects on those layers show here too.
 - **Sounds:** your dashboard's soundboard. Sounds play **on your PC** through the LightFeed dashboard, so keep the dashboard open while you stream.
 - **Mod:** the Quick Mod Desk (emote-only, slow mode, sub-only, clear chat with two taps, timeouts and custom commands).
 
 It vibrates on taps (on phones that support it) and keeps the screen on while connected. Both can be turned off in settings.
+
+### My Buttons (like an Elgato Stream Deck)
+
+On the **Buttons** tab, tap **Edit** → **New button** (or **Add starter buttons** to get Mic, your cameras, BRB, Save Clip, Screenshot and Record made for you). Give it a name, icon and colour, then add **steps**. One tap runs every step in order, for example *BRB = switch to the BRB scene → mute Mic → turn off Webcam*.
+
+| Step | What it does |
+|---|---|
+| Switch scene | Shows a scene |
+| Mute / unmute audio | Toggle, mute or unmute any audio track |
+| Camera / layer on or off | Toggle, show or hide any layer in any scene |
+| Effect on or off | Toggle, turn on or turn off an effect |
+| Recording | Start / stop recording |
+| Go live / end stream | Buttons with this step always need two taps |
+| Save a clip, Take a screenshot | Meld's replay clip and screenshot |
+| Virtual camera on/off, Recording chapter marker | Meld commands |
+| Play a soundboard sound | Plays on your PC through the dashboard |
+| Post a chat message button | Posts one of your dashboard's Stream Deck chat messages |
+| Wait | Pauses 0.5–10 seconds before the next step |
+
+Buttons with one step show their live state (e.g. *Muted*, *On*, *On air*). Tap **Edit** to change, delete or reorder buttons. Your buttons are saved to your LightFeed account, so they're still there if you clear your browser or use another phone. Each step remembers both the item and its name, so it still finds the right camera or track if you re-create it in Meld with the same name.
 
 **Who can use it:** only the Twitch accounts listed in `DECK_OWNERS` (in `public/streamdeck.js` **and** `netlify/functions/team.mjs`). Everyone else, including your LightFeed mods, sees "This page is private." Log in to LightFeed with that Twitch account on your phone first.
 

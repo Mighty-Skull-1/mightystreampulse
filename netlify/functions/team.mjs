@@ -13,7 +13,27 @@ const ACTIVE_WINDOW_MS = 3 * 60 * 1000;
 const ACTION_TYPES = ['deck', 'sound', 'hype', 'poll_start', 'poll_end', 'giveaway_start', 'giveaway_pick', 'giveaway_reset', 'trivia'];
 // Twitch logins allowed to use the phone Stream Deck (streamdeck.html). Nobody else, not even their mods.
 const DECK_OWNERS = ['mightyttv0'];
-const DECK_ACTION_TYPES = ['sound'];
+const DECK_ACTION_TYPES = ['sound', 'deck'];
+const MAX_DECK_BUTTONS = 60;
+const MAX_STEPS = 12;
+const STEP_TYPES = ['scene', 'mute', 'layer', 'effect', 'record', 'stream', 'clip', 'screenshot', 'vcam', 'marker', 'sound', 'chat', 'wait'];
+const STEP_FIELDS = ['sceneId', 'sceneName', 'trackId', 'trackName', 'layerId', 'layerName', 'effectId', 'effectName', 'soundId', 'soundName', 'deckId', 'deckTitle', 'mode'];
+
+// Clean a phone Stream Deck button list before saving it
+function cleanButtons(list) {
+    return (Array.isArray(list) ? list : []).slice(0, MAX_DECK_BUTTONS).map(b => ({
+        id: str(b && b.id, 40) || crypto.randomUUID().slice(0, 8),
+        label: str(b && b.label, 40),
+        icon: str(b && b.icon, 40).replace(/[^a-z0-9\- ]/gi, ''),
+        color: /^#[0-9a-f]{6}$/i.test((b && b.color) || '') ? b.color : '',
+        steps: (Array.isArray(b && b.steps) ? b.steps : []).slice(0, MAX_STEPS).filter(s => s && STEP_TYPES.includes(s.type)).map(s => {
+            const out = { type: s.type };
+            STEP_FIELDS.forEach(k => { if (typeof s[k] === 'string' && s[k]) out[k] = str(s[k], 80); });
+            if (s.type === 'wait') out.ms = Math.max(100, Math.min(10000, parseInt(s.ms, 10) || 500));
+            return out;
+        })
+    }));
+}
 
 const json = (status, body) => new Response(JSON.stringify(body), {
     status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
@@ -94,7 +114,8 @@ export default async (req) => {
             await store.setJSON(`beat/${me.login}/deck`, now);
             const shared = await getJSON(store, `owner/${me.login}/shared`, {});
             const streamerBeat = await getJSON(store, `beat/${me.login}/streamer`, 0);
-            return json(200, { me: me.login, shared, streamerOnline: now - streamerBeat < 90 * 1000 });
+            const buttons = await getJSON(store, `owner/${me.login}/deckbuttons`, null);
+            return json(200, { me: me.login, shared, buttons, streamerOnline: now - streamerBeat < 90 * 1000 });
         }
 
         // Mod: which channels can I manage?
@@ -180,6 +201,15 @@ export default async (req) => {
             };
             await store.setJSON(`owner/${me.login}/shared`, shared);
             return json(200, { ok: true });
+        }
+
+        // Owner's phone Stream Deck saves its custom buttons
+        if (op === 'deck_buttons') {
+            if (!DECK_OWNERS.includes(me.login)) return json(403, { error: 'The Stream Deck is private.' });
+            if (JSON.stringify(body.buttons || []).length > 120 * 1024) return json(413, { error: 'Too many buttons to save.' });
+            const buttons = cleanButtons(body.buttons);
+            await store.setJSON(`owner/${me.login}/deckbuttons`, buttons);
+            return json(200, { ok: true, buttons });
         }
 
         // Owner's phone Stream Deck sends an action to their own dashboard (e.g. play a sound on the PC)
