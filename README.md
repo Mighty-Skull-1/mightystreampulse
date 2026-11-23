@@ -1,155 +1,170 @@
 # LightFeed ⚡
-> **All-in-One Twitch Streamer Deck, Chatbot, Moderation Suite & OBS Overlay**
+> **All-in-one Twitch dashboard: Stream Deck, chatbot, soundboard, alerts, mod tools, OBS overlay and a phone deck for Meld Studio.**
 
-[![Live Demo](https://img.shields.io/badge/Live%20App-mightystreampulse.netlify.app-9146ff?style=for-the-badge&logo=twitch&logoColor=white)](https://mightystreampulse.netlify.app)
-[![Netlify Status](https://img.shields.io/badge/Hosted%20On-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)]([https://mightystreampulse.netlify.app](https://lightfeed.netlify.app/))
+[![Live App](https://img.shields.io/badge/Live%20App-lightfeed.netlify.app-9146ff?style=for-the-badge&logo=twitch&logoColor=white)](https://lightfeed.netlify.app)
+[![Hosted on Netlify](https://img.shields.io/badge/Hosted%20On-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://lightfeed.netlify.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-**LightFeed** is a lightweight, responsive, and browser-first Twitch command center designed for content creators, streamers, and moderators. It combines a 1-click Stream Deck action pad, automated chatbot engine (**LightFeed Bot**), live moderation controls, custom soundboard, viewer engagement minigames, and animated OBS Studio browser overlays into a single dashboard.
+**LightFeed** runs in your browser. Log in with Twitch and you get a 1-click Stream Deck, a chatbot (**LightFeed Bot**), a soundboard, sub and bits alerts, chat moderation, polls and giveaways, YouTube song requests and an animated OBS overlay. Your mods can help from their own login, and you can run Meld Studio from your phone.
+
+👉 **Open it at [lightfeed.netlify.app](https://lightfeed.netlify.app)**
 
 ---
 
-## ✨ Key Features
+## 📚 Contents
 
-### 🤖 LightFeed Bot (Twitch Chatbot Integration)
-- **Direct Twitch IRC Connectivity:** Connects directly via WebSocket IRC using client-side `tmi.js`—no server required!
-- **Auto-Reply Commands:** Comes preconfigured with `!discord`, `!socials`, `!rules`, `!uptime`, `!game`, and allows creating unlimited custom commands with real-time in-browser management.
-- **Timed Chat Announcements:** Set up recurring broadcast messages (Discord community links, hydration/stretch checks, follow & sub reminders) on configurable minute intervals.
-- **Broadcaster & Bot Echo:** Streamers can type chat messages directly from the dashboard and view the real-time channel chat feed with colored user badges.
-
-### 🎮 1-Click Action Pad (Stream Deck)
-- Instant customizable broadcast buttons for chat interactions:
-  - 👋 **Welcome Chat**
-  - 🌐 **Share Socials**
-  - 💬 **Discord Squad**
-  - 🔥 **Hype Wave**
-  - 📜 **Chat Rules**
-  - 💧 **Hydrate Check**
-  - 🏆 **GG Big Play**
-  - 👑 **Prime Gaming Sub Reminder**
-- **Full Customizability:** Edit any button's title, category badge, FontAwesome icon, and message payload directly from the UI.
-
-### 🛡️ Streamer Moderation Deck
-- **1-Click Chat Cleanup:**
-  - 🧹 `/clear` nukes and clears chat history.
-  - 😊 `/emoteonly` toggle (enable/disable emote-only chat mode).
-  - ⏱️ `/slow` mode with selectable durations (5s, 10s, 30s, 60s).
-  - ⭐ `/followers` only and `/subscribers` only chat restrictions.
-  - ⚡ **Custom Mod Command Runner:** Execute any native Twitch moderator command (`/timeout`, `/ban`, `/commercial`, `/raid`) directly from the desk.
-
-### 🔊 Custom Soundboard FX Studio
-- **Built-in Audio Synthesis Presets (Zero-Latency Web Audio API):**
-  - 📢 *MLG Airhorn Blast*
-  - 🎉 *Hype Fanfare*
-  - 👏 *Crowd Applause*
-  - 🔔 *Bell Chime*
-  - 🥁 *Ba-dum-tss / Drumroll*
-  - 🏆 *Level Up / Victory Arpeggio*
-  - 💀 *Game Over / Sad Trombone*
-  - ⚡ *Retro Laser Blaster*
-  - 🪙 *Mario 1-Up Coin*
-  - 💥 *Cartoon Bonk*
-  - 🚨 *Emergency Siren Alert*
-- **Custom Audio File Uploads:** Upload your own `.mp3`, `.wav`, `.ogg`, or `.m4a` sound files directly from your computer (stored in browser `localStorage`).
-- **Direct Audio URLs:** Stream sounds from any web audio link.
-- **Master Soundboard Volume Slider:** Dynamically scale volume to match your stream audio mix.
-- **Studio Manager:** Add, preview, reorder (move up/down), edit, delete, or reset soundboard buttons.
-
-### 🎁 Interactive Viewer Minigames & Chat Engagement
-- **Chat Giveaways:** Launch keyword-entry giveaways (`!enter`), track unique participant entries, display countdown timers, and randomly pick verified winners with confetti animations.
-- **Live Channel Polls:** Create multiple-choice chat polls. Viewers vote with `!vote 1`, `!vote 2`, etc., with live percentage bars and real-time tallying.
-- **Chat Trivia Challenge:** Broadcast trivia questions to chat; the first viewer to answer correctly in chat wins!
-- **Magic 8-Ball:** Viewers can ask the mystical 8-ball anytime using `!8ball [question]`.
-
-### 🎵 YouTube Song Requests & Live Jukebox
-- **Interactive Chat Song Requests:** Viewers can request songs in Twitch chat using `!song <youtube-link>` or `!sr <link>` (supports standard YouTube URLs, `youtu.be`, `/shorts/`, embeds, and raw video IDs).
-- **Sequential Auto-Play Jukebox:** Embedded responsive 16:9 YouTube player that auto-plays tracks in sequence and automatically transitions to the next queued song when finished (`YT.PlayerState.ENDED`).
-- **Live Now Playing Bar:** Displays the active video title, YouTube channel/artist, and which chatter requested it. Viewers can check what's playing in chat via `!song`, `!np`, or `!currentsong`.
-- **Streamer Jukebox Controls:** Complete deck with Play/Pause, Replay current song, Skip next (`!skip` or UI button), and a dedicated player volume slider.
-- **Up Next Queue & Streamer Quick-Queue:** Streamers can paste links directly to queue tracks, remove specific songs, or clear the queue. Viewers can preview the upcoming songs with `!queue` or `!songqueue`.
-- **Zero API Keys Required:** Automatic CORS metadata fetching via `noembed.com` for title and thumbnail lookup without requiring Google Cloud or YouTube Data API keys.
-- **Auto-Skip Error Handling:** If a video is region-restricted or copyright-blocked from embedding, the jukebox alerts chat and automatically moves to the next song without getting stuck.
-
-### 🖥️ OBS Studio / Streamlabs Overlay
-- Dedicated **Browser Source Overlay** (`overlay.html`).
-- Displays animated top banners, live poll graphs, giveaway winner announcements, and stream milestones directly onto your OBS canvas.
-
-### 👤 Multi-Streamer Profile Management
-- Switch between multiple streamer profiles or bot accounts.
-- Each profile maintains isolated `localStorage` storage for buttons, timers, custom commands, soundboard buttons, and channel settings.
-- Seamless Twitch OAuth Implicit Grant authorization.
-
-### 🎙️ Text-to-Speech (TTS) & Confetti FX
-- Browser-native speech synthesis reads out incoming chat messages in real time.
-- Interactive full-screen canvas confetti cannon for hype trains, raids, and celebration moments.
+- [Features](#-features)
+- [Getting Started](#-getting-started)
+- [OBS / Streamlabs Overlay](#-obs--streamlabs-overlay)
+- [Sub, Bits & Channel Point Alerts](#-sub-bits--channel-point-alerts)
+- [Mods & the Mod Panel](#-mods--the-mod-panel)
+- [Phone Stream Deck (Meld Studio)](#-phone-stream-deck-meld-studio)
+- [Running Locally](#-running-locally)
+- [Project Structure](#-project-structure)
+- [Privacy & Security](#-privacy--security)
+- [License](#-license)
 
 ---
 
-## 🚀 Quick Start
+## ✨ Features
 
-### Option A: Use the Live Web App (No Setup Required)
-Simply navigate to:
-👉 **[https://mightystreampulse.netlify.app](https://mightystreampulse.netlify.app)**
+The dashboard has a tab for each of these.
 
-### Option B: Run Locally with Node.js
+### 🎮 Stream Deck (1-Click Action Pad)
+- Big buttons that post a message to your chat in one click.
+- Comes with 8 starter buttons: Welcome Chat, Share Socials, Discord Squad, Hype Wave, Chat Rules, Hydrate Check, GG Big Play and Prime Gaming Sub.
+- Add your own, or edit any button's title, category, icon and message.
+- **Hype Train Alert** button in the header fires a hype message with confetti.
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Mighty-Skull-1/mightystreampulse.git
-   cd mightystreampulse
-   ```
+### 🔊 Soundboard
+- Tap a pad to play it. Number keys **1–0** work as hotkeys, and **Stop All** cuts every sound.
+- 11 built-in sounds made in the browser (no files needed): Airhorn, Hype Fanfare, Applause, Bell Chime, Ba-dum-tss, Victory, Game Over, Laser, Coin 1-Up, Bonk and Siren.
+- Add your own sounds from a file or a web link, sort them into categories, and search them.
+- Master volume slider. Viewers hear the soundboard when OBS captures your desktop audio.
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+### 🎵 Song Requests & Jukebox
+- Viewers request YouTube songs in chat with `!song <link>` or `!sr <link>` (normal links, `youtu.be`, Shorts and video IDs all work).
+- Built-in player plays the queue in order, with play/pause, replay, skip and volume.
+- Chat commands: `!song` / `!np` (what's playing), `!queue` / `!songqueue` (what's next), `!skip` (mods and streamer only).
+- Queue songs yourself, remove songs, or clear the queue. Turn requests on or off.
+- Blocked or region-locked videos are skipped automatically. No YouTube API key needed.
 
-3. **Start the local server:**
-   ```bash
-   npm start
-   ```
+### 🎁 Mini-Games & Polls
+- **Live Chat Poll:** viewers vote by typing `1`, `2`, `3`… in chat, with live results.
+- **Chat Giveaway:** pick a keyword (like `!win`); everyone who types it is entered. Pick a random winner with confetti.
+- **Chat Trivia:** the bot asks a question and the first correct answer wins.
+- **Magic 8-Ball:** always on. Viewers type `!8ball <question>`.
 
-4. **Open in your browser:**
-   Open [http://localhost:3000](http://localhost:3000) in Chrome, Edge, or Firefox.
+### 🛡️ Quick Mod Desk
+Uses Twitch's official moderation API:
+- Clear chat (asks first)
+- Emote-only, slow mode (5s to 2 min) and sub-only, with an ON/OFF badge for each
+- Timeout a chatter (1 minute to 1 hour)
+- Custom commands: `/followers [minutes]`, `/followersoff`, `/timeout <user> [seconds] [reason]`, `/ban <user> [reason]`, `/unban <user>` and more
+
+### ⏰ Timed Announcements
+- Messages the bot posts every X minutes, like Discord links, follow reminders or hydrate checks. Turn each one on or off.
+
+### 🤖 Bot Chat Commands
+- Auto-replies when viewers type a command. Comes with `!discord`, `!socials`, `!rules`, `!uptime` and `!game`, and you can add as many as you like.
+
+### 🔔 Sub & Bits Alerts
+- Big on-screen alerts with sound for subs, gifted subs, bits, raids and channel point redemptions. See [Sub, Bits & Channel Point Alerts](#-sub-bits--channel-point-alerts).
+
+### 🎨 Theme
+- Pick your main and highlight colours (presets or custom) and a background (Charcoal, Midnight Blue, Pure Black or Deep Plum).
+- Each profile keeps its own theme, and your OBS overlay, Mod Panel and phone Stream Deck match it.
+
+### 👥 Mods
+- Let trusted mods use your Stream Deck, soundboard, polls, giveaways, trivia and Mod Desk from their own Twitch login. See [Mods & the Mod Panel](#-mods--the-mod-panel).
+
+### 💬 Live Chat, TTS & Stats
+- Live chat panel with coloured names. Type messages to chat from the dashboard.
+- **Chat Speech (TTS):** reads incoming chat messages out loud.
+- Counters for messages sent, received and active chatters.
+
+### 💾 Backup & Profiles
+- **Export / Import** saves your buttons, timers, commands, soundboard, song settings, theme and alert settings to a file and brings them back.
+- **Profiles:** switch between several Twitch accounts. Each profile keeps its own settings in your browser.
 
 ---
 
-## ⚙️ Connecting to Twitch
+## 🚀 Getting Started
 
-1. Open **LightFeed**.
-2. Click **Connect Twitch Account** or authorize with Twitch OAuth:
-   - Generate your OAuth token using the Twitch Token Generator link provided in the dashboard.
-   - Required scopes: `chat:read`, `chat:edit`, `channel:moderate`.
-3. Enter your **Bot Username** (or channel name) and **Channel to Join**.
-4. Click **Connect Bot** — the status light will turn green (**Connected**), and **LightFeed Bot** will enter your chat room!
+1. Go to **[lightfeed.netlify.app](https://lightfeed.netlify.app)**.
+2. Click **Connect with Twitch** and approve the permissions. LightFeed asks for:
+   - `chat:read`, `chat:edit`: read and post chat as your bot
+   - `channel:moderate`, `moderator:manage:chat_settings`, `moderator:manage:chat_messages`, `moderator:manage:banned_users`: the Quick Mod Desk
+   - `channel:read:redemptions`: channel point alerts
+   - `user:read:email`: part of the Twitch login
+3. You land on the dashboard and **LightFeed Bot** joins your chat automatically. The **Connection Status** light turns green when it's connected.
+
+Other ways to log in (on the login page):
+- **Quick Token:** connect with a channel name and an `oauth:` chat token.
+- **Settings:** use your own Twitch Developer Client ID for the 1-click login (the page shows the redirect URL to register).
+- **Saved Profiles:** switch accounts.
+
+> If you add a feature that needs a new Twitch permission (for example channel point alerts), log out with **Switch / Exit** and log in again so Twitch grants it.
 
 ---
 
-## 🎥 Setting Up OBS Studio / Streamlabs Overlay
+## 🎥 OBS / Streamlabs Overlay
 
-1. In OBS Studio or Streamlabs, navigate to your **Sources** panel.
-2. Click **+ (Add Source)** and choose **Browser**.
-3. Name the source `LightFeed Overlay`.
-4. Enter the URL:
-   - **Hosted:** `https://mightystreampulse.netlify.app/overlay.html`
-   - **Local:** `http://localhost:3000/overlay.html`
-5. Set Width to `1920` and Height to `1080` (or match your canvas resolution).
-6. Check **"Shutdown source when not visible"** and click **OK**.
+1. In the dashboard, open **OBS Overlay Setup** and click **Copy** to copy your overlay link. It looks like `https://lightfeed.netlify.app/overlay.html?channel=yourchannel` plus your settings.
+2. In OBS or Streamlabs, under **Sources**, click **+** and choose **Browser**. Name it `LightFeed Overlay`.
+3. Paste the link, set **Width 1920** and **Height 1080** (or your canvas size).
+4. Tick **Control audio via OBS** so alert sounds go out on stream.
+5. Tick **Shutdown source when not visible** and click **OK**.
+6. Click **Send Test Banner Alert** in the dashboard to check it works.
+
+The overlay shows banners, poll results, giveaway winners, alerts and confetti, plus an on-screen chat feed. It reads your chat directly, so it works from the hosted site with nothing running on your PC.
+
+**Copy the link again** whenever you change your theme or alert settings, because those settings are saved in the link.
+
+---
+
+## 🔔 Sub, Bits & Channel Point Alerts
+
+Open the **Sub & Bits Alerts** tab.
+
+- **Test buttons:** Test Sub, Test Bits, Test Gift Bomb, Test Raid and Test Channel Points. Tick the box to show the test on your overlay too.
+- **Alert sounds:** pick a sound for each alert type, or **Upload from my PC** (mp3, wav, ogg or m4a, up to 4 MB). Uploads are saved to your Twitch account so they work on any computer, and only play on your channel.
+- **Dashboard vs stream:** set the sound and volume you hear on the dashboard separately from what viewers hear on the overlay. You can also have sub and cheer messages read out loud on stream.
+- **Channel points:** get an alert on the dashboard when someone redeems a reward, and optionally show it on your overlay. You need to be logged in as the channel owner.
+- **Supporters this session** lists everyone who subbed or cheered while the dashboard was open.
+
+---
+
+## 👥 Mods & the Mod Panel
+
+Let your mods press your buttons without giving them your login.
+
+1. In the dashboard, open **Mods**, type a mod's Twitch username and click **Add**.
+2. Send them the link shown (`https://lightfeed.netlify.app/mod.html`).
+3. They log in with **their own** Twitch account (the login page has a **Log in to the Mod Panel** link) and pick your channel.
+
+From the Mod Panel they can use your Stream Deck, soundboard, polls, giveaways, trivia and Hype Train. Their presses are sent to your open dashboard, which runs them through your bot. You see each one in **Mod activity**.
+
+- **Keep your dashboard open while you stream**, or their presses won't run.
+- The Mod Desk on their panel uses their own Twitch mod powers, so they must also be a mod in your Twitch chat.
+- Mods can't change your settings. Remove a mod any time from the **Mods** tab.
 
 ---
 
 ## 📱 Phone Stream Deck (Meld Studio)
 
-`streamdeck.html` is a phone-friendly control pad for **Meld Studio**. Open it at **https://lightfeed.netlify.app/streamdeck.html** (or tap **Stream Deck** next to your account name on the dashboard).
+`streamdeck.html` is a phone control pad for **Meld Studio**. Open **https://lightfeed.netlify.app/streamdeck.html**, or tap **Stream Deck** next to your account name on the dashboard.
 
-It gives you big tiles for:
-- **Scenes**: loaded from Meld automatically. The scene that's on air is highlighted.
-- **Mic**: mute / unmute your mic track, with its current state.
-- **Go Live / End Stream**: needs a second tap within a few seconds, so you can't end the stream by accident.
-- **Soundboard**: your dashboard's sounds. They play **on your PC** through the LightFeed dashboard, so keep the dashboard open while you stream.
-- **Quick Mod Desk**: emote-only, slow mode, sub-only, clear chat (two taps), timeouts and custom mod commands.
+It gives you big tiles that work in portrait and landscape:
+- **Scenes:** loaded from Meld automatically. The scene that's on air is highlighted.
+- **Mic:** mute or unmute your mic track, with its current state.
+- **Go Live / End Stream:** needs a second tap within a few seconds, so you can't end the stream by accident.
+- **Sounds:** your dashboard's soundboard. Sounds play **on your PC** through the LightFeed dashboard, so keep the dashboard open while you stream.
+- **Mod:** the Quick Mod Desk (emote-only, slow mode, sub-only, clear chat with two taps, timeouts and custom commands).
 
-Only the Twitch accounts listed in `DECK_OWNERS` (in `public/streamdeck.js` **and** `netlify/functions/team.mjs`) can open it. Everyone else, including your LightFeed mods, sees "This page is private." Log in to LightFeed with that Twitch account on your phone first.
+It vibrates on taps (on phones that support it) and keeps the screen on while connected. Both can be turned off in settings.
+
+**Who can use it:** only the Twitch accounts listed in `DECK_OWNERS` (in `public/streamdeck.js` **and** `netlify/functions/team.mjs`). Everyone else, including your LightFeed mods, sees "This page is private." Log in to LightFeed with that Twitch account on your phone first.
 
 ### How the phone reaches Meld
 
@@ -157,7 +172,7 @@ Meld Studio has a remote-control API (its *WebChannel* API) on your PC at `127.0
 
 ### 1. Turn on Meld's API
 
-In Meld Studio's settings, make sure the WebChannel (remote control) API is enabled. Integrations like Streamer.bot and Bitfocus Companion use the same setting. The default port is **13376**.
+In Meld Studio's settings, make sure the WebChannel (remote control) API is turned on. Integrations like Streamer.bot and Bitfocus Companion use the same setting. The default port is **13376**.
 
 ### 2. Install cloudflared on Windows
 
@@ -191,11 +206,11 @@ After a few seconds it prints an address like `https://random-words-here.tryclou
 2. Tap the ⚙️ settings button, paste the `https://…trycloudflare.com` address, and tap **Save & connect**.
 3. Pick your mic under **Mic track** (it picks a track with "mic" in its name by default).
 
-The address is saved on that phone only (never in the code or on the LightFeed server). The status pill shows **Connected**, **Reconnecting…** or **Offline**, and the page reconnects by itself if the connection drops or your phone wakes up.
+The address is saved on that phone only (never in the code or on the LightFeed server). The status pill shows **Connected**, **Reconnecting…** or **Offline**, and the page reconnects by itself if the connection drops or your phone wakes up. Tap the pill to retry straight away.
 
 **Quick tunnels get a new address every time you start them**, so paste the new one in settings each stream.
 
-### ⚠️ Keep the tunnel address private
+### 🔐 Keep the tunnel address private
 
 Meld's API has no password. **Anyone who knows your tunnel address can control Meld** (switch scenes, mute you, end your stream) for as long as the tunnel is running. So:
 - Don't show the cloudflared window or the settings screen on stream.
@@ -206,33 +221,67 @@ The LightFeed login only hides the page; it can't lock Meld itself. For a perman
 
 ---
 
-## 🛠️ Project Architecture
+## 💻 Running Locally
+
+You don't need to run anything to use LightFeed; the hosted site has everything. Running it yourself is for development.
+
+```bash
+git clone https://github.com/Mighty-Skull-1/mightystreampulse.git
+cd mightystreampulse
+npm install
+npm start
+```
+
+Then open [http://localhost:3000](http://localhost:3000). To use a different port, copy `.env.example` to `.env` and change `PORT`.
+
+`npm start` runs `server.js`, a small Express server that serves the `public/` folder and has an older set of local bot APIs. It does **not** run the Netlify functions, so **Mods, uploaded alert sounds and the phone Stream Deck's soundboard only work on the Netlify site** (or with `netlify dev` from the [Netlify CLI](https://docs.netlify.com/cli/get-started/)).
+
+**Windows app:** `npm run build-exe` packages the local server into `LightFeed.exe`. Put it next to `Start-LightFeed.bat` and double-click the `.bat` to start it and open the dashboard.
+
+### Deploying your own copy
+
+Connect the repo to Netlify. `netlify.toml` already sets the publish folder (`public`) and the functions folder (`netlify/functions`). The functions use Netlify Blobs, which works on Netlify with no extra setup. For the 1-click Twitch login, register your site's URL as a redirect URL in your Twitch Developer app and add its Client ID on the login page under **Settings**.
+
+---
+
+## 📁 Project Structure
 
 ```
 mightystreampulse/
-├── public/
-│   ├── index.html       # Main streamer dashboard & command deck
-│   ├── login.html       # Streamer authentication & profile picker
-│   ├── overlay.html     # OBS Studio browser source overlay
-│   ├── mod.html/mod.js  # Mod Panel for your LightFeed mods
-│   ├── streamdeck.html  # Phone Stream Deck for Meld Studio (streamdeck.js)
-│   ├── meld-client.js   # Meld Studio WebChannel client with auto-reconnect
-│   ├── lf-shared.js     # Shared helpers: theme + Quick Mod Desk engine
-│   ├── app.js           # Core client application & Twitch IRC engine
-│   ├── style.css        # Cyberpunk neon UI, animations & responsive grid
-│   ├── tmi.min.js       # Bundled local Twitch Messaging Interface library
-│   └── favicon.svg      # Pulse logo icon
-├── server.js            # Optional Express.js & WebSocket server for local runs
-├── package.json         # Project metadata and dependencies
-└── README.md            # Documentation and setup guide
+├── public/                   # The website (published by Netlify)
+│   ├── index.html            # Streamer dashboard
+│   ├── app.js                # Dashboard logic: bot, deck, soundboard, alerts, mods relay…
+│   ├── login.html            # Twitch login, quick token, saved profiles
+│   ├── overlay.html          # OBS / Streamlabs browser source overlay
+│   ├── mod.html, mod.js      # Mod Panel for your LightFeed mods
+│   ├── streamdeck.html       # Phone Stream Deck for Meld Studio
+│   ├── streamdeck.js         #   …its logic
+│   ├── meld-client.js        # Meld Studio WebChannel client with auto-reconnect
+│   ├── lf-shared.js          # Shared helpers: theme + Quick Mod Desk engine
+│   ├── style.css             # Dark theme and layout
+│   └── tmi.min.js            # Twitch chat library (tmi.js), bundled locally
+├── netlify/functions/
+│   ├── team.mjs              # Mods, shared setup, mod/phone → dashboard relay
+│   └── sounds.mjs            # Uploaded alert & soundboard sounds
+├── netlify.toml              # Netlify build settings
+├── server.js                 # Optional local Express server
+├── Start-LightFeed.bat       # Starts LightFeed.exe on Windows
+├── .env.example              # Settings for the local server
+└── package.json
 ```
 
 ---
 
 ## 🔒 Privacy & Security
 
-- **100% Client-Side Credentials:** Your Twitch OAuth tokens and channel names are stored exclusively in your browser's private `localStorage`.
-- **Zero Third-Party Database Tracking:** No external databases, tracking telemetry, or third-party servers store your tokens or chat logs.
+- **Your Twitch login stays in your browser.** Your token is saved in your browser's `localStorage`. When LightFeed's server functions need to know who you are, your browser sends the token, the server checks it with Twitch, and it isn't stored.
+- **What LightFeed stores on its server (Netlify Blobs), keyed by your Twitch username:**
+  - your mods list
+  - the setup your mods and phone deck see: Stream Deck buttons, soundboard names and theme
+  - button presses waiting for your dashboard to run them (deleted once they run)
+  - sounds you upload for alerts and the soundboard
+- **No chat logs, analytics or tracking.**
+- **Phone Stream Deck:** the Cloudflare Tunnel address is saved only on your phone. Anyone with that address can control Meld while the tunnel runs, so keep it private (see [above](#-keep-the-tunnel-address-private)).
 
 ---
 
@@ -243,5 +292,5 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  Built with ❤️ for the Twitch Streaming Community by <strong>LightFeed</strong>
+  Built with ❤️ for the Twitch streaming community by <strong>Mighty</strong>
 </p>
