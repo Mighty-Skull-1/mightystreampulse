@@ -192,13 +192,22 @@ cloudflared --version
 
 ### 3. Start the tunnel (every time you stream)
 
-With Meld Studio open, run:
+**Easy way:** double-click **`Start-MeldTunnel.bat`** in the LightFeed folder. It:
+- checks cloudflared is installed (and offers to install it if not)
+- waits for Meld Studio if it isn't open yet
+- starts the tunnel and waits until the address is live (so your phone doesn't get "address not found")
+- shows the address in big letters and copies it to your clipboard
+- warns you if Meld closes while the tunnel is running
+
+Leave that window open while you stream. Press **Ctrl+C** (then **Y**) or close the window to stop the tunnel.
+
+**Manual way:** with Meld Studio open, run:
 
 ```powershell
 cloudflared tunnel --url http://127.0.0.1:13376
 ```
 
-After a few seconds it prints an address like `https://random-words-here.trycloudflare.com`. Leave that window open while you stream. Closing it closes the tunnel.
+After a few seconds it prints an address like `https://random-words-here.trycloudflare.com`. Wait about 30 seconds before using it. Leave that window open while you stream. Closing it closes the tunnel.
 
 ### 4. Connect your phone
 
@@ -266,6 +275,8 @@ mightystreampulse/
 ├── netlify.toml              # Netlify build settings
 ├── server.js                 # Optional local Express server
 ├── Start-LightFeed.bat       # Starts LightFeed.exe on Windows
+├── Start-MeldTunnel.bat      # Starts the Meld tunnel for the phone Stream Deck
+├── Start-MeldTunnel.ps1      #   …the script it runs
 ├── .env.example              # Settings for the local server
 └── package.json
 ```
