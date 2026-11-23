@@ -605,8 +605,9 @@
         $('sdEdAddType').innerHTML = Object.entries(STEP_DEFS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('');
         renderEditor();
         $('sdEditorBg').classList.add('open'); $('sdEditor').classList.add('open');
+        document.body.classList.add('sheet-open');
     }
-    function closeEditor() { $('sdEditorBg').classList.remove('open'); $('sdEditor').classList.remove('open'); draft = null; renderButtons(); }
+    function closeEditor() { $('sdEditorBg').classList.remove('open'); $('sdEditor').classList.remove('open'); document.body.classList.remove('sheet-open'); draft = null; renderButtons(); }
 
     function options(list, value, emptyLabel) {
         const has = list.some(o => o.value === value);
@@ -760,8 +761,9 @@
         $('sdWake').checked = localStorage.getItem(KEY.wake) !== 'off';
         renderMicOptions();
         $('sdSheetBg').classList.add('open'); $('sdSheet').classList.add('open');
+        document.body.classList.add('sheet-open');
     }
-    function closeSheet() { $('sdSheetBg').classList.remove('open'); $('sdSheet').classList.remove('open'); }
+    function closeSheet() { $('sdSheetBg').classList.remove('open'); $('sdSheet').classList.remove('open'); document.body.classList.remove('sheet-open'); }
     function wireSettings() {
         $('sdSettingsBtn').addEventListener('click', () => { haptic(8); openSheet(); });
         $('sdStatus').addEventListener('click', () => { if (meld.status === 'connected') return; haptic(8); if (!meld.url) openSheet(); else { meld.kick(); toast('Trying to reconnect…'); } });

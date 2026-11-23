@@ -12,9 +12,11 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-        html, body { height: 100%; }
+        /* style.css locks the page for the dashboard; this page scrolls normally */
+        html, body { height: auto; overflow: visible; }
         body {
-            background: var(--bg-base); color: var(--text-primary); margin: 0; min-height: 100vh; display: block;
+            overflow-x: hidden; overflow-y: auto;
+            background: var(--bg-base); color: var(--text-primary); margin: 0; min-height: 100vh; min-height: 100dvh; display: block;
             -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
         }
         .sd-wrap {
@@ -195,6 +197,8 @@
             transform: translateY(105%); transition: transform .22s ease; max-width: 640px; margin: 0 auto; box-sizing: border-box;
         }
         .sd-sheet.open { transform: none; }
+        .sd-sheet { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+        body.sheet-open { overflow: hidden; }
         .sd-sheet h2 { margin: 0 0 4px; font-size: 1.1rem; }
         .sd-sheet label { display: block; font-size: .8rem; font-weight: 700; color: var(--text-secondary); margin: 16px 0 6px; }
         .sd-sheet .sd-row { margin-top: 10px; }

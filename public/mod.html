@@ -8,7 +8,9 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
-        body { background: var(--bg-base); color: var(--text-primary); margin: 0; min-height: 100vh; }
+        /* style.css locks the page for the dashboard; this page scrolls normally */
+        html { height: auto; overflow: visible; }
+        body { background: var(--bg-base); color: var(--text-primary); margin: 0; min-height: 100vh; height: auto; overflow-x: hidden; overflow-y: auto; }
         .mp-wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
         .mp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; justify-content: space-between; margin-bottom: 18px; }
         .mp-brand { display: flex; align-items: center; gap: 12px; }
