@@ -1,23 +1,33 @@
-# LightFeed - Meld Studio tunnel
-# Starts a Cloudflare quick tunnel to Meld Studio's WebChannel API so the phone
-# Stream Deck (https://lightfeed.netlify.app/streamdeck.html) can reach it.
+# LightFeed - Stream Deck tunnel
+# Starts a Cloudflare quick tunnel to your streaming app's remote-control port so the
+# phone Stream Deck (https://lightfeed.netlify.app/streamdeck.html) can reach it.
+#   Meld Studio        port 13376  (WebChannel API, on by default)
+#   OBS Studio         port 4455   (Tools > WebSocket Server Settings)
+#   Streamlabs Desktop port 59650  (Settings > Remote Control)
 #
 # What it does:
 #   1. Finds cloudflared (offers to install it with winget if missing)
-#   2. Waits for Meld Studio's API on port 13376
+#   2. Finds which app is running (or waits for the one you picked)
 #   3. Starts the tunnel and waits until its address is reachable
 #   4. Shows the address and copies it to the clipboard
 #   5. Keeps running until you press Ctrl+C or close the window (that closes the tunnel)
 #
-# Run it with Start-MeldTunnel.bat (double-click), or:
-#   powershell -NoProfile -ExecutionPolicy Bypass -File .\Start-MeldTunnel.ps1
+# Run it with Start-StreamDeckTunnel.bat (double-click), or:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File .\Start-StreamDeckTunnel.ps1 [-App auto|meld|obs|streamlabs]
 
 param(
-    [int]$Port = 13376
+    [ValidateSet('auto', 'meld', 'obs', 'streamlabs')]
+    [string]$App = 'auto',
+    [int]$Port = 0
 )
 
 $ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = 'LightFeed - Meld tunnel'
+$Host.UI.RawUI.WindowTitle = 'LightFeed - Stream Deck tunnel'
+$Apps = [ordered]@{
+    meld       = @{ Name = 'Meld Studio'; Port = 13376; Hint = 'open Meld Studio (its WebChannel API is on by default)' }
+    obs        = @{ Name = 'OBS Studio'; Port = 4455; Hint = 'in OBS: Tools > WebSocket Server Settings > Enable WebSocket server' }
+    streamlabs = @{ Name = 'Streamlabs Desktop'; Port = 59650; Hint = 'in Streamlabs: Settings > Remote Control, turn it on' }
+}
 
 function Say([string]$text, [string]$color = 'Gray') { Write-Host $text -ForegroundColor $color }
 
@@ -30,12 +40,13 @@ function Find-Cloudflared {
     return $null
 }
 
-function Test-MeldListening {
-    return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
+function Test-Listening([int]$p) {
+    return [bool](Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue)
 }
+function Test-AppListening { return Test-Listening $Port }
 
 Say ''
-Say '  LightFeed - Meld Studio tunnel' 'Magenta'
+Say '  LightFeed - Stream Deck tunnel' 'Magenta'
 Say '  ------------------------------' 'Magenta'
 Say ''
 
@@ -55,16 +66,32 @@ if (-not $cloudflared) {
 }
 Say "  cloudflared: found" 'DarkGray'
 
-# 2. Meld Studio
-if (-not (Test-MeldListening)) {
-    Say "  Waiting for Meld Studio... (open Meld, and make sure its WebChannel API is on, port $Port)" 'Yellow'
-    Say '  Press Ctrl+C to cancel.' 'DarkGray'
-    while (-not (Test-MeldListening)) { Start-Sleep -Seconds 2 }
+# 2. Which app?
+if ($App -eq 'auto') {
+    $running = @($Apps.Keys | Where-Object { Test-Listening $Apps[$_].Port })
+    if ($running.Count -eq 1) { $App = $running[0] }
+    else {
+        if ($running.Count -gt 1) { Say '  More than one streaming app is running. Which one should the phone control?' 'Yellow' }
+        else { Say '  Which app do you stream with?' 'Yellow' }
+        Say '    1) Meld Studio    2) OBS Studio    3) Streamlabs Desktop'
+        $pick = Read-Host '  Type 1, 2 or 3'
+        $App = @{ '1' = 'meld'; '2' = 'obs'; '3' = 'streamlabs' }[$pick.Trim()]
+        if (-not $App) { Say '  OK, nothing was started.'; exit 1 }
+    }
 }
-Say "  Meld Studio: found on port $Port" 'DarkGray'
+$AppName = $Apps[$App].Name
+if ($Port -le 0) { $Port = $Apps[$App].Port }
+$Host.UI.RawUI.WindowTitle = "LightFeed - $AppName tunnel"
+if (-not (Test-AppListening)) {
+    Say "  Waiting for $AppName on port $Port..." 'Yellow'
+    Say ("  ({0})" -f $Apps[$App].Hint) 'Yellow'
+    Say '  Press Ctrl+C to cancel.' 'DarkGray'
+    while (-not (Test-AppListening)) { Start-Sleep -Seconds 2 }
+}
+Say "  $AppName is running on port $Port" 'DarkGray'
 
 # 3. Start the tunnel (cloudflared writes its log to stderr)
-$log = Join-Path $env:TEMP ("lightfeed-meld-tunnel-{0}.log" -f $PID)
+$log = Join-Path $env:TEMP ("lightfeed-deck-tunnel-{0}.log" -f $PID)
 $logOut = "$log.out"
 $proc = Start-Process -FilePath $cloudflared `
     -ArgumentList @('tunnel', '--no-autoupdate', '--url', "http://127.0.0.1:$Port") `
@@ -106,7 +133,7 @@ try {
 
     Say ''
     Say '  =====================================================================' 'Green'
-    Say '   READY. Paste this into the Stream Deck settings on your phone:' 'Green'
+    Say "   READY. On your phone pick $AppName and paste this address:" 'Green'
     Say ''
     Say "     $url" 'White'
     Say ''
@@ -115,18 +142,19 @@ try {
     Say '  =====================================================================' 'Green'
     Say ''
     Say '  Keep this window open while you stream.' 'Yellow'
-    Say '  Anyone with this address can control Meld, so do not show it on stream.' 'Yellow'
+    if ($App -eq 'meld') { Say '  Meld has no password: anyone with this address can control it. Do not show it on stream.' 'Yellow' }
+    else { Say "  Do not show this address on stream. $AppName still asks for its password/token." 'Yellow' }
     Say '  Press Ctrl+C or close this window to stop the tunnel.' 'Yellow'
     Say ''
 
-    # 4. Stay running; warn if Meld closes
-    $meldUp = $true
+    # 4. Stay running; warn if the app closes
+    $appUp = $true
     while (-not $proc.HasExited) {
         Start-Sleep -Seconds 3
-        $now = Test-MeldListening
-        if ($meldUp -and -not $now) { Say ("  [{0}] Meld Studio closed. The phone will reconnect when you open it again." -f (Get-Date -Format 'HH:mm')) 'Yellow' }
-        elseif (-not $meldUp -and $now) { Say ("  [{0}] Meld Studio is back." -f (Get-Date -Format 'HH:mm')) 'Green' }
-        $meldUp = $now
+        $now = Test-AppListening
+        if ($appUp -and -not $now) { Say ("  [{0}] {1} closed. The phone will reconnect when you open it again." -f (Get-Date -Format 'HH:mm'), $AppName) 'Yellow' }
+        elseif (-not $appUp -and $now) { Say ("  [{0}] {1} is back." -f (Get-Date -Format 'HH:mm'), $AppName) 'Green' }
+        $appUp = $now
     }
     Say '  The tunnel stopped. Last lines from cloudflared:' 'Red'
     if (Test-Path $log) { Get-Content $log -Tail 10 | ForEach-Object { Say "    $_" 'DarkGray' } }

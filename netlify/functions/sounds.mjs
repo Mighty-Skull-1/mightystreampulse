@@ -73,7 +73,8 @@ export default async (req) => {
         const { blobs } = await store.list({ prefix: `${login}/` });
         if (blobs.length >= MAX_SOUNDS) return json(409, { error: `You can keep up to ${MAX_SOUNDS} sounds. Delete one first.` });
 
-        const rawName = decodeURIComponent(req.headers.get('x-file-name') || 'Sound');
+        let rawName = 'Sound';
+        try { rawName = decodeURIComponent(req.headers.get('x-file-name') || 'Sound'); } catch (e) {}
         const name = rawName.replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[^\w\s\-'!().]/g, '').trim().slice(0, 40) || 'Sound';
         const id = crypto.randomUUID().replace(/-/g, '');
         await store.set(`${login}/${id}`, buf, { metadata: { name, type, size: buf.byteLength, created: Date.now() } });

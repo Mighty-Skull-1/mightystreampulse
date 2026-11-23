@@ -1,11 +1,11 @@
 # LightFeed ⚡
-> **All-in-one Twitch dashboard: Stream Deck, chatbot, soundboard, alerts, mod tools, OBS overlay and a phone deck for Meld Studio.**
+> **All-in-one Twitch dashboard: Stream Deck, chatbot, soundboard, alerts, mod tools, OBS overlay and a phone Stream Deck for Meld, OBS and Streamlabs.**
 
 [![Live App](https://img.shields.io/badge/Live%20App-lightfeed.netlify.app-9146ff?style=for-the-badge&logo=twitch&logoColor=white)](https://lightfeed.netlify.app)
 [![Hosted on Netlify](https://img.shields.io/badge/Hosted%20On-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://lightfeed.netlify.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-**LightFeed** runs in your browser. Log in with Twitch and you get a 1-click Stream Deck, a chatbot (**LightFeed Bot**), a soundboard, sub and bits alerts, chat moderation, polls and giveaways, YouTube song requests and an animated OBS overlay. Your mods can help from their own login, and you can run Meld Studio from your phone.
+**LightFeed** runs in your browser. Log in with Twitch and you get a 1-click Stream Deck, a chatbot (**LightFeed Bot**), a soundboard, sub and bits alerts, chat moderation, polls and giveaways, YouTube song requests and an animated OBS overlay. Your mods can help from their own login, and you can run Meld Studio, OBS or Streamlabs from your phone.
 
 👉 **Open it at [lightfeed.netlify.app](https://lightfeed.netlify.app)**
 
@@ -18,7 +18,7 @@
 - [OBS / Streamlabs Overlay](#-obs--streamlabs-overlay)
 - [Sub, Bits & Channel Point Alerts](#-sub-bits--channel-point-alerts)
 - [Mods & the Mod Panel](#-mods--the-mod-panel)
-- [Phone Stream Deck (Meld Studio)](#-phone-stream-deck-meld-studio)
+- [Phone Stream Deck](#-phone-stream-deck)
 - [Running Locally](#-running-locally)
 - [Project Structure](#-project-structure)
 - [Privacy & Security](#-privacy--security)
@@ -151,49 +151,62 @@ From the Mod Panel they can use your Stream Deck, soundboard, polls, giveaways, 
 
 ---
 
-## 📱 Phone Stream Deck (Meld Studio)
+## 📱 Phone Stream Deck
 
-`streamdeck.html` is a phone control pad for **Meld Studio**. Open **https://lightfeed.netlify.app/streamdeck.html**, or tap **Stream Deck** next to your account name on the dashboard.
+`streamdeck.html` is a phone control pad for **Meld Studio**, **OBS Studio** or **Streamlabs Desktop**. Any streamer can use it for their own channel: open **https://lightfeed.netlify.app/streamdeck.html** and log in with Twitch, or tap **Stream Deck** next to your account name on the dashboard.
 
 It gives you big tiles that work in portrait and landscape. **Go Live / End Stream** and **Mic** are always at the top (Go Live needs a second tap within a few seconds, so you can't end the stream by accident). Below them are six tabs:
 - **Buttons:** your own Stream Deck buttons (see below).
-- **Scenes:** loaded from Meld automatically. The scene that's on air is highlighted.
-- **Audio:** every audio track in Meld (Mic, Discord, game audio…) with mute / unmute and its current state.
-- **Layers:** pick a scene, then turn any layer on or off: cameras, overlays, game capture. Effects on those layers show here too.
+- **Scenes:** loaded from your app automatically. The scene that's on air is highlighted.
+- **Audio:** every audio source (Mic, Discord, game audio…) with mute / unmute and its current state.
+- **Layers:** pick a scene, then turn any source/layer on or off: cameras, overlays, game capture. Effects (Meld) and filters (OBS) on those sources show here too.
 - **Sounds:** your dashboard's soundboard. Sounds play **on your PC** through the LightFeed dashboard, so keep the dashboard open while you stream.
 - **Mod:** the Quick Mod Desk (emote-only, slow mode, sub-only, clear chat with two taps, timeouts and custom commands).
 
 It vibrates on taps (on phones that support it) and keeps the screen on while connected. Both can be turned off in settings.
 
+### What works with which app
+
+| | Meld Studio | OBS Studio | Streamlabs Desktop |
+|---|:-:|:-:|:-:|
+| Scenes, mute audio, sources/layers on and off | ✅ | ✅ | ✅ |
+| Go live / end stream, recording | ✅ | ✅ | ✅ |
+| Save a clip (replay buffer) | ✅ | ✅ (turn on the Replay Buffer first) | ✅ (turn on the Replay Buffer first) |
+| Effects / filters on and off | ✅ effects | ✅ filters | — |
+| Virtual camera, chapter marker | ✅ | ✅ (markers need OBS 30.2+, Hybrid MP4) | — |
+| Screenshot | ✅ | — | — |
+| Password | none | WebSocket password | API token |
+| Port | 13376 | 4455 | 59650 |
+
 ### My Buttons (like an Elgato Stream Deck)
 
-On the **Buttons** tab, tap **Edit** → **New button** (or **Add starter buttons** to get Mic, your cameras, BRB, Save Clip, Screenshot and Record made for you). Give it a name, icon and colour, then add **steps**. One tap runs every step in order, for example *BRB = switch to the BRB scene → mute Mic → turn off Webcam*.
+On the **Buttons** tab, tap **Edit** → **New button** (or **Add starter buttons** to get Mic, your cameras, BRB, Save Clip and Record made for you). Give it a name, icon and colour, then add **steps**. One tap runs every step in order, for example *BRB = switch to the BRB scene → mute Mic → turn off Webcam*.
 
 | Step | What it does |
 |---|---|
 | Switch scene | Shows a scene |
-| Mute / unmute audio | Toggle, mute or unmute any audio track |
-| Camera / layer on or off | Toggle, show or hide any layer in any scene |
-| Effect on or off | Toggle, turn on or turn off an effect |
+| Mute / unmute audio | Toggle, mute or unmute any audio source |
+| Camera / layer on or off | Toggle, show or hide any source in any scene |
+| Effect on or off | Toggle, turn on or turn off an effect (Meld) or filter (OBS) |
 | Recording | Start / stop recording |
 | Go live / end stream | Buttons with this step always need two taps |
-| Save a clip, Take a screenshot | Meld's replay clip and screenshot |
-| Virtual camera on/off, Recording chapter marker | Meld commands |
+| Save a clip, Take a screenshot | Replay clip; screenshot is Meld only |
+| Virtual camera on/off, Recording chapter marker | Meld and OBS |
 | Play a soundboard sound | Plays on your PC through the dashboard |
 | Post a chat message button | Posts one of your dashboard's Stream Deck chat messages |
 | Wait | Pauses 0.5–10 seconds before the next step |
 
-Buttons with one step show their live state (e.g. *Muted*, *On*, *On air*). Tap **Edit** to change, delete or reorder buttons. Your buttons are saved to your LightFeed account, so they're still there if you clear your browser or use another phone. Each step remembers both the item and its name, so it still finds the right camera or track if you re-create it in Meld with the same name.
+The editor only offers steps your app can do. Buttons with one step show their live state (e.g. *Muted*, *On*, *On air*). Tap **Edit** to change, delete or reorder buttons. Your buttons are saved to your LightFeed account, so they're still there if you clear your browser or use another phone. Each step remembers both the item and its name, so it still finds the right camera or track if you re-create it, or even switch apps, as long as the name matches.
 
-**Who can use it:** only the Twitch accounts listed in `DECK_OWNERS` (in `public/streamdeck.js` **and** `netlify/functions/team.mjs`). Everyone else, including your LightFeed mods, sees "This page is private." Log in to LightFeed with that Twitch account on your phone first.
+### How the phone reaches your PC
 
-### How the phone reaches Meld
+Your streaming app has a remote-control port on your PC (Meld `13376`, OBS `4455`, Streamlabs `59650`). LightFeed is an `https://` site, and phones can only open secure (`wss://`) connections from it, so you run a free **Cloudflare Tunnel** on the PC that gives that port a temporary secure address. Your phone then talks **straight to your PC** through your tunnel. LightFeed's servers never see the address, your OBS password or your Streamlabs token.
 
-Meld Studio has a remote-control API (its *WebChannel* API) on your PC at `127.0.0.1:13376`. LightFeed is an `https://` site, and phones can only open secure (`wss://`) connections from it, so you run a free **Cloudflare Tunnel** on the PC that gives Meld a temporary secure address.
+### 1. Turn on your app's remote control
 
-### 1. Turn on Meld's API
-
-In Meld Studio's settings, make sure the WebChannel (remote control) API is turned on. Integrations like Streamer.bot and Bitfocus Companion use the same setting. The default port is **13376**.
+- **Meld Studio:** nothing to do. Its WebChannel API is on by default (port 13376).
+- **OBS Studio (28 or newer):** **Tools → WebSocket Server Settings**. Tick **Enable WebSocket server**, keep **Enable Authentication** on, and click **Show Connect Info** to see the password.
+- **Streamlabs Desktop:** **Settings → Remote Control**. Turn it on, click the QR code, then **Show details** to see the **API Token**.
 
 ### 2. Install cloudflared on Windows
 
@@ -213,41 +226,55 @@ cloudflared --version
 
 ### 3. Start the tunnel (every time you stream)
 
-**Easy way:** double-click **`Start-MeldTunnel.bat`** in the LightFeed folder. It:
+**Easy way:** double-click **`Start-StreamDeckTunnel.bat`** in the LightFeed folder. It:
 - checks cloudflared is installed (and offers to install it if not)
-- waits for Meld Studio if it isn't open yet
+- finds which app is running (Meld, OBS or Streamlabs), or asks you
+- waits for the app if it isn't open yet
 - starts the tunnel and waits until the address is live (so your phone doesn't get "address not found")
 - shows the address in big letters and copies it to your clipboard
-- warns you if Meld closes while the tunnel is running
+- warns you if the app closes while the tunnel is running
 
-Leave that window open while you stream. Press **Ctrl+C** (then **Y**) or close the window to stop the tunnel.
+Leave that window open while you stream. Press **Ctrl+C** (then **Y**) or close the window to stop the tunnel. (`Start-MeldTunnel.bat` still works and always picks Meld.)
 
-**Manual way:** with Meld Studio open, run:
+**Manual way:** with your app open, run the line for your app:
 
 ```powershell
 cloudflared tunnel --url http://127.0.0.1:13376
 ```
 
-After a few seconds it prints an address like `https://random-words-here.trycloudflare.com`. Wait about 30 seconds before using it. Leave that window open while you stream. Closing it closes the tunnel.
+```powershell
+cloudflared tunnel --url http://127.0.0.1:4455
+```
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:59650
+```
+
+(13376 = Meld, 4455 = OBS, 59650 = Streamlabs.) After a few seconds it prints an address like `https://random-words-here.trycloudflare.com`. Wait about 30 seconds before using it. Leave that window open while you stream. Closing it closes the tunnel.
 
 ### 4. Connect your phone
 
 1. On your phone, open `https://lightfeed.netlify.app/streamdeck.html` and log in with Twitch if asked.
-2. Tap the ⚙️ settings button, paste the `https://…trycloudflare.com` address, and tap **Save & connect**.
-3. Pick your mic under **Mic track** (it picks a track with "mic" in its name by default).
+2. Tap the ⚙️ settings button and pick your app (**Meld Studio**, **OBS Studio** or **Streamlabs**). The settings screen shows the exact steps and tunnel command for that app.
+3. Paste the `https://…trycloudflare.com` address. For OBS paste the WebSocket password, for Streamlabs the API token. Tap **Save & connect**.
+4. Pick your mic under **Mic** (it picks a source with "mic" in its name by default).
 
-The address is saved on that phone only (never in the code or on the LightFeed server). The status pill shows **Connected**, **Reconnecting…** or **Offline**, and the page reconnects by itself if the connection drops or your phone wakes up. Tap the pill to retry straight away.
+The address and password are saved on that phone only (never in the code or on the LightFeed server). The status pill shows **Connected**, **Reconnecting…** or **Offline**, and the page reconnects by itself if the connection drops or your phone wakes up. Tap the pill to retry straight away. A wrong password or token stops retrying and tells you to fix it in settings.
 
 **Quick tunnels get a new address every time you start them**, so paste the new one in settings each stream.
 
 ### 🔐 Keep the tunnel address private
 
-Meld's API has no password. **Anyone who knows your tunnel address can control Meld** (switch scenes, mute you, end your stream) for as long as the tunnel is running. So:
+Whoever has your tunnel address can reach your app's remote control while the tunnel runs:
+- **Meld Studio has no password**, so anyone with the address can control Meld (switch scenes, mute you, end your stream).
+- **OBS and Streamlabs** still ask for the password / token, so the address alone isn't enough. Keep authentication **on** in OBS (the phone warns you if it's off).
+
+So:
 - Don't show the cloudflared window or the settings screen on stream.
 - Close the tunnel (Ctrl+C in that window) when you finish streaming.
 - If the address leaks, close the tunnel and start a new one to get a new address.
 
-The LightFeed login only hides the page; it can't lock Meld itself. For a permanent address with a login in front of it, you can set up a named Cloudflare Tunnel with Cloudflare Access instead (needs a domain on Cloudflare).
+The LightFeed login decides whose buttons and soundboard you see; it can't lock your streaming app itself. For a permanent address with a login in front of it, you can set up a named Cloudflare Tunnel with Cloudflare Access instead (needs a domain on Cloudflare).
 
 ---
 
@@ -284,9 +311,9 @@ mightystreampulse/
 │   ├── login.html            # Twitch login, quick token, saved profiles
 │   ├── overlay.html          # OBS / Streamlabs browser source overlay
 │   ├── mod.html, mod.js      # Mod Panel for your LightFeed mods
-│   ├── streamdeck.html       # Phone Stream Deck for Meld Studio
+│   ├── streamdeck.html       # Phone Stream Deck (Meld / OBS / Streamlabs)
 │   ├── streamdeck.js         #   …its logic
-│   ├── meld-client.js        # Meld Studio WebChannel client with auto-reconnect
+│   ├── deck-client.js        # Connects to Meld, OBS or Streamlabs, with auto-reconnect
 │   ├── lf-shared.js          # Shared helpers: theme + Quick Mod Desk engine
 │   ├── style.css             # Dark theme and layout
 │   └── tmi.min.js            # Twitch chat library (tmi.js), bundled locally
@@ -296,8 +323,9 @@ mightystreampulse/
 ├── netlify.toml              # Netlify build settings
 ├── server.js                 # Optional local Express server
 ├── Start-LightFeed.bat       # Starts LightFeed.exe on Windows
-├── Start-MeldTunnel.bat      # Starts the Meld tunnel for the phone Stream Deck
-├── Start-MeldTunnel.ps1      #   …the script it runs
+├── Start-StreamDeckTunnel.bat # Starts the tunnel for the phone Stream Deck
+├── Start-StreamDeckTunnel.ps1 #   …the script it runs
+├── Start-MeldTunnel.bat      # Same, always for Meld Studio
 ├── .env.example              # Settings for the local server
 └── package.json
 ```
@@ -313,7 +341,7 @@ mightystreampulse/
   - button presses waiting for your dashboard to run them (deleted once they run)
   - sounds you upload for alerts and the soundboard
 - **No chat logs, analytics or tracking.**
-- **Phone Stream Deck:** the Cloudflare Tunnel address is saved only on your phone. Anyone with that address can control Meld while the tunnel runs, so keep it private (see [above](#-keep-the-tunnel-address-private)).
+- **Phone Stream Deck:** the Cloudflare Tunnel address, OBS password and Streamlabs token are saved only on your phone and only sent to your own PC, never to LightFeed. Each streamer's deck buttons and relay queue are keyed by the Twitch login the server checks, so nobody can read or press another streamer's deck. The deck page only runs LightFeed's own scripts (Content-Security-Policy) and can't be framed by other sites. Anyone with a Meld tunnel address can control Meld while the tunnel runs, so keep it private (see [above](#-keep-the-tunnel-address-private)).
 
 ---
 

@@ -658,10 +658,11 @@ function appendChatMessage(data) {
     if (data.isReward && !(typeof pointsFeedLive === 'function' && pointsFeedLive())) playFx('ding');
 }
 
+// Safe for text AND for attribute values (escapes quotes too)
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // Client-Side Timers
@@ -1888,12 +1889,17 @@ function renderSongQueueUI() {
         return;
     }
 
+    // Only YouTube thumbnail URLs; anything else falls back to the default for that video
+    const safeThumb = (song) => {
+        const id = /^[\w-]{6,20}$/.test(song.videoId || '') ? song.videoId : '';
+        return /^https:\/\/i\.ytimg\.com\/[\w\/.-]+$/.test(song.thumbnail || '') ? song.thumbnail : `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+    };
     songQueue.forEach((song, idx) => {
         const item = document.createElement('div');
         item.className = 'queue-item-card';
         item.innerHTML = `
             <span class="queue-num">#${idx + 1}</span>
-            <img class="queue-thumb" src="${song.thumbnail || `https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg`}" alt="Thumbnail" onerror="this.src='https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg'">
+            <img class="queue-thumb" src="${escapeHtml(safeThumb(song))}" alt="Thumbnail" onerror="this.src='${escapeHtml(safeThumb({ videoId: song.videoId }))}'">
             <div class="queue-info">
                 <div class="queue-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
                 <div class="queue-meta">
@@ -2747,6 +2753,15 @@ async function checkOAuthRedirect() {
     if (hash && hash.includes('access_token=')) {
         const params = new URLSearchParams(hash.substring(1));
         const token = params.get('access_token');
+        // Only accept a token from a Twitch login that this browser tab started (stops login-CSRF links)
+        const expectedState = localStorage.getItem('lf_oauth_state');
+        localStorage.removeItem('lf_oauth_state');
+        if (token && (!expectedState || params.get('state') !== expectedState)) {
+            window.history.replaceState(null, null, window.location.pathname);
+            alert('That login link did not come from this browser, so it was ignored. Please log in again.');
+            window.location.href = 'login.html';
+            return true;
+        }
         if (token) {
             window.history.replaceState(null, null, window.location.pathname);
             try {
@@ -3723,14 +3738,16 @@ function scheduleRelayPoll(ms) {
 }
 async function relayPoll() {
     if (!team.mods.length) setRelayStatus('Add a mod to turn this on.', '');
-    // The owner's phone Stream Deck also sends actions (sounds) through this relay
+    // The streamer's own phone Stream Deck also sends actions (sounds, chat buttons) through this relay
     if (!team.mods.length && !team.deck) return;
     try {
         const d = await teamFetch('?relay=1');
         (d.actions || []).forEach(runModAction);
         team.active = !!d.modsActive || !!d.deckActive;
         if (team.mods.length) setRelayStatus(d.modsActive ? '✅ A mod is online. Their presses run within a few seconds.' : '✅ Ready. Waiting for a mod to open their panel.', 'ok');
-        scheduleRelayPoll(document.hidden && !team.active ? 30000 : (team.active ? 2500 : 20000));
+        // Fast while a mod or the phone deck is in use; slow (and slower still with no mods) otherwise
+        const idle = team.mods.length ? 20000 : 30000;
+        scheduleRelayPoll(team.active ? 2500 : (document.hidden ? idle * 2 : idle));
     } catch (e) {
         setRelayStatus('Couldn\'t reach LightFeed. Retrying…', 'warn');
         scheduleRelayPoll(30000);

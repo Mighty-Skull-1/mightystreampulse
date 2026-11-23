@@ -643,11 +643,15 @@
                 'user:read:email'
             ].join('+');
 
+            // Random state, checked when Twitch sends us back (stops login-CSRF links)
+            const state = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+            localStorage.setItem('lf_oauth_state', state);
             const authUrl = `https://id.twitch.tv/oauth2/authorize` +
-                `?client_id=${clientId}` +
+                `?client_id=${encodeURIComponent(clientId)}` +
                 `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
                 `&response_type=token` +
                 `&scope=${scopes}` +
+                `&state=${state}` +
                 `&force_verify=true`;
 
             window.location.href = authUrl;
@@ -737,6 +741,14 @@
             const params = new URLSearchParams(hash.substring(1));
             const accessToken = params.get('access_token');
             if (!accessToken) return;
+            // Only accept a token from a Twitch login that this browser tab started
+            const expectedState = localStorage.getItem('lf_oauth_state');
+            localStorage.removeItem('lf_oauth_state');
+            if (!expectedState || params.get('state') !== expectedState) {
+                window.history.replaceState(null, null, window.location.pathname);
+                alert('That login link did not come from this browser, so it was ignored. Please log in again.');
+                return;
+            }
 
             // Show loading spinner
             const overlay = document.getElementById('authLoadingOverlay');

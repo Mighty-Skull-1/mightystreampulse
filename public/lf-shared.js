@@ -3,7 +3,8 @@
 (function () {
     const LF = window.LF = window.LF || {};
 
-    LF.esc = (t) => { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; };
+    // Safe for text AND for attribute values (escapes quotes too)
+    LF.esc = (t) => { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
 
     // ---------- Theme ----------
     const BGS = {

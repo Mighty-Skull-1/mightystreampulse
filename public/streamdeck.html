@@ -8,6 +8,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="robots" content="noindex">
+    <!-- Only LightFeed's own scripts may run here (this page keeps your OBS password / Streamlabs token) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src https://cdnjs.cloudflare.com data:; img-src 'self' data:; connect-src 'self' https://id.twitch.tv https://api.twitch.tv wss: ws://localhost:* ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="referrer" content="no-referrer">
     <title>Stream Deck - LightFeed</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -202,6 +205,17 @@
         .sd-sheet h2 { margin: 0 0 4px; font-size: 1.1rem; }
         .sd-sheet label { display: block; font-size: .8rem; font-weight: 700; color: var(--text-secondary); margin: 16px 0 6px; }
         .sd-sheet .sd-row { margin-top: 10px; }
+        .sd-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+        .sd-seg button { border-radius: 12px; padding: 11px 6px; border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-secondary); font: inherit; font-weight: 800; font-size: .82rem; cursor: pointer; touch-action: manipulation; }
+        .sd-seg button.active { border-color: var(--primary); color: #fff; background: rgba(var(--primary-rgb), .25); }
+        .sd-help { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: 12px; background: rgba(255,255,255,.03); font-size: .82rem; color: var(--text-secondary); }
+        .sd-help ol { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+        .sd-help b { color: var(--text-primary); }
+        .sd-help code { display: block; margin: 6px 0; padding: 8px 10px; border-radius: 8px; background: #000; color: #a5f3fc; font-size: .78rem; overflow-wrap: anywhere; user-select: all; }
+        .sd-help .sd-btn { padding: 8px 12px; min-height: 0; font-size: .8rem; }
+        .sd-secret { display: flex; gap: 6px; }
+        .sd-secret .sd-input { flex: 1; min-width: 0; }
+        .sd-secret .sd-btn { flex: 0 0 auto; padding: 0 14px; }
         .sd-check { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-weight: 700; font-size: .9rem; }
         .sd-check input { width: 22px; height: 22px; accent-color: var(--primary); }
 
@@ -217,7 +231,7 @@
             <div class="badge"><i class="fa-solid fa-mobile-screen-button"></i></div>
             <div style="min-width:0"><h1><span class="long">LightFeed </span>Stream Deck</h1><small id="sdWho">LOADING…</small></div>
         </div>
-        <button id="sdStatus" class="sd-status offline" style="display:none" title="Connection to Meld Studio"><span class="dot"></span><span id="sdStatusText">Offline</span></button>
+        <button id="sdStatus" class="sd-status offline" style="display:none" title="Connection to your streaming app"><span class="dot"></span><span id="sdStatusText">Offline</span></button>
         <button id="sdSettingsBtn" class="sd-icon-btn" style="display:none" title="Settings" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
     </div>
 
@@ -227,8 +241,8 @@
         <p class="sd-reason" id="sdReason"></p>
         <div class="sd-main">
             <div class="sd-controls">
-                <button class="tile stream disabled" id="sdStream"><i class="fa-solid fa-tower-broadcast"></i><span class="label">Go Live</span><span class="sub">Meld offline</span></button>
-                <button class="tile mic disabled" id="sdMic"><i class="fa-solid fa-microphone"></i><span class="label">Mic</span><span class="sub">Meld offline</span></button>
+                <button class="tile stream disabled" id="sdStream"><i class="fa-solid fa-tower-broadcast"></i><span class="label">Go Live</span><span class="sub">Offline</span></button>
+                <button class="tile mic disabled" id="sdMic"><i class="fa-solid fa-microphone"></i><span class="label">Mic</span><span class="sub">Offline</span></button>
             </div>
             <div>
                 <div class="sd-tabs" role="tablist">
@@ -305,17 +319,32 @@
     <h2><i class="fa-solid fa-gear"></i> Stream Deck settings</h2>
     <p class="sd-note">Saved on this phone only.</p>
 
-    <label for="sdUrl">Meld tunnel address (Cloudflare Tunnel)</label>
+    <label>Your streaming app</label>
+    <div class="sd-seg" id="sdAppSel" role="group" aria-label="Streaming app">
+        <button type="button" data-app="meld">Meld Studio</button>
+        <button type="button" data-app="obs">OBS Studio</button>
+        <button type="button" data-app="streamlabs">Streamlabs</button>
+    </div>
+    <div class="sd-help" id="sdAppHelp"></div>
+
+    <label for="sdUrl">Tunnel address (Cloudflare Tunnel)</label>
     <input class="sd-input" id="sdUrl" type="url" inputmode="url" placeholder="https://your-tunnel.trycloudflare.com" autocapitalize="off" autocomplete="off" spellcheck="false">
-    <p class="sd-note" style="margin-top:6px">Paste the https:// address cloudflared prints. Anyone with this address can control Meld, so keep it private. <a href="https://github.com/Mighty-Skull-1/mightystreampulse#-phone-stream-deck-meld-studio" target="_blank" rel="noopener" style="color: var(--accent)">Setup guide</a></p>
+    <div id="sdSecretWrap" style="display:none">
+        <label for="sdSecret" id="sdSecretLabel">Password</label>
+        <div class="sd-secret">
+            <input class="sd-input" id="sdSecret" type="password" autocapitalize="off" autocomplete="off" spellcheck="false">
+            <button class="sd-btn" id="sdSecretShow" type="button" aria-label="Show or hide"><i class="fa-solid fa-eye"></i></button>
+        </div>
+    </div>
+    <p class="sd-note" style="margin-top:6px">Your phone talks straight to your PC through your own tunnel. The address and password are saved on this phone only; LightFeed's servers never see them. <a href="https://github.com/Mighty-Skull-1/mightystreampulse#-phone-stream-deck" target="_blank" rel="noopener" style="color: var(--accent)">Setup guide</a></p>
     <p class="sd-note warn" id="sdUrlErr" style="display:none"></p>
     <div class="sd-row">
         <button class="sd-btn primary" id="sdUrlSave"><i class="fa-solid fa-plug"></i> Save &amp; connect</button>
         <button class="sd-btn" id="sdUrlForget">Forget</button>
     </div>
 
-    <label for="sdMicSel">Mic track</label>
-    <select class="sd-select" id="sdMicSel"><option value="">Connect to Meld to pick</option></select>
+    <label for="sdMicSel">Mic</label>
+    <select class="sd-select" id="sdMicSel"><option value="">Connect to pick</option></select>
 
     <label class="sd-check"><input type="checkbox" id="sdHaptics" checked> Vibrate on tap (if your phone supports it)</label>
     <label class="sd-check"><input type="checkbox" id="sdWake" checked> Keep screen on while connected</label>
@@ -359,7 +388,7 @@
 <div id="sdToasts"></div>
 
 <script src="lf-shared.js"></script>
-<script src="meld-client.js"></script>
+<script src="deck-client.js"></script>
 <script src="streamdeck.js"></script>
 </body>
 </html>

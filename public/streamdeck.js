@@ -1,11 +1,14 @@
 // LightFeed phone Stream Deck
-// Controls Meld Studio (through a Cloudflare Tunnel to Meld's WebChannel API), plays the
-// soundboard on the PC through the LightFeed dashboard, and runs the Quick Mod Desk.
-// Only the Twitch logins in DECK_OWNERS can use it (the server checks this too).
+// Controls the streamer's own Meld Studio, OBS Studio or Streamlabs Desktop (straight from the
+// phone, through their own Cloudflare Tunnel - see deck-client.js), plays the soundboard on the
+// PC through the LightFeed dashboard, and runs the Quick Mod Desk.
+// Any logged-in streamer can use it, for their own channel only (the server checks this too).
+// The tunnel address and the OBS password / Streamlabs token are kept on this phone only.
 (function () {
-    const DECK_OWNERS = ['mightyttv0'];
     const TEAM_API = '/.netlify/functions/team';
-    const KEY = { url: 'lf_deck_tunnel_url', mic: 'lf_deck_mic_track', haptics: 'lf_deck_haptics', wake: 'lf_deck_wake' };
+    const KEY = { app: 'lf_deck_app', url: 'lf_deck_tunnel_url', mic: 'lf_deck_mic_track', haptics: 'lf_deck_haptics', wake: 'lf_deck_wake' };
+    const secretKey = (app) => 'lf_deck_secret_' + app;
+    const APP = () => deck.app.short;
     const $ = (id) => document.getElementById(id);
     const esc = LF.esc;
 
@@ -63,12 +66,12 @@
         return d;
     }
 
-    // ---------- Meld connection ----------
-    const meld = new LFMeld.Connection({ onChange: renderMeld });
+    // ---------- Connection to the streaming app ----------
+    const deck = new LFDeck.Connection({ onChange: renderDeck });
     let wakeLock = null;
 
     async function updateWakeLock() {
-        const want = meld.status === 'connected' && localStorage.getItem(KEY.wake) !== 'off' && !document.hidden;
+        const want = deck.status === 'connected' && localStorage.getItem(KEY.wake) !== 'off' && !document.hidden;
         try {
             if (want && !wakeLock && navigator.wakeLock) {
                 wakeLock = await navigator.wakeLock.request('screen');
@@ -80,33 +83,33 @@
 
     function micTrack() {
         const saved = localStorage.getItem(KEY.mic);
-        return meld.tracks.find(t => t.id === saved)
-            || meld.tracks.find(t => /\bmic|microphone/i.test(t.name))
+        return deck.tracks.find(t => t.id === saved)
+            || deck.tracks.find(t => /\bmic|microphone/i.test(t.name))
             || null;
     }
 
     let lastStatus = '';
-    function renderMeld() {
-        const connected = meld.status === 'connected';
+    function renderDeck() {
+        const connected = deck.status === 'connected';
         const pill = $('sdStatus');
-        pill.className = 'sd-status ' + meld.status;
-        $('sdStatusText').textContent = connected ? 'Connected' : (meld.status === 'reconnecting' ? 'Reconnecting…' : 'Offline');
-        $('sdReason').textContent = connected ? '' : meld.reason;
-        if (lastStatus && lastStatus !== meld.status) {
-            if (connected) { haptic(15); toast('✓ Connected to Meld'); }
-            else if (lastStatus === 'connected') { haptic([60, 60, 60]); toast('Lost Meld. Reconnecting…', true); }
+        pill.className = 'sd-status ' + deck.status;
+        $('sdStatusText').textContent = connected ? 'Connected' : (deck.status === 'reconnecting' ? 'Reconnecting…' : 'Offline');
+        $('sdReason').textContent = connected ? '' : deck.reason;
+        if (lastStatus && lastStatus !== deck.status) {
+            if (connected) { haptic(15); toast('✓ Connected to ' + deck.app.name); if (deck.warning) setTimeout(() => toast('⚠ ' + deck.warning, true), 600); }
+            else if (lastStatus === 'connected') { haptic([60, 60, 60]); toast(`Lost ${APP()}. Reconnecting…`, true); }
         }
-        lastStatus = meld.status;
+        lastStatus = deck.status;
         updateWakeLock();
 
         // Stream button
         const sb = $('sdStream');
         if (!streamConfirm.isArmed()) {
             sb.classList.toggle('disabled', !connected);
-            sb.classList.toggle('live', connected && meld.isStreaming);
+            sb.classList.toggle('live', connected && deck.isStreaming);
             sb.innerHTML = !connected
-                ? '<i class="fa-solid fa-tower-broadcast"></i><span class="label">Go Live</span><span class="sub">Meld offline</span>'
-                : meld.isStreaming
+                ? '<i class="fa-solid fa-tower-broadcast"></i><span class="label">Go Live</span><span class="sub">' + esc(APP()) + ' offline</span>'
+                : deck.isStreaming
                     ? '<i class="fa-solid fa-stop"></i><span class="label">End Stream</span><span class="sub"><span class="sd-live-dot"></span>LIVE · tap twice</span>'
                     : '<i class="fa-solid fa-tower-broadcast"></i><span class="label">Go Live</span><span class="sub">Tap twice to start</span>';
         }
@@ -118,7 +121,7 @@
         mb.classList.toggle('muted', !!mic && mic.muted);
         mb.classList.toggle('live', !!mic && !mic.muted);
         mb.innerHTML = !connected
-            ? '<i class="fa-solid fa-microphone"></i><span class="label">Mic</span><span class="sub">Meld offline</span>'
+            ? '<i class="fa-solid fa-microphone"></i><span class="label">Mic</span><span class="sub">' + esc(APP()) + ' offline</span>'
             : !mic
                 ? '<i class="fa-solid fa-microphone"></i><span class="label">Mic</span><span class="sub">Pick a mic in settings</span>'
                 : mic.muted
@@ -134,17 +137,17 @@
 
     function renderScenes() {
         const grid = $('sdScenes');
-        if (meld.status !== 'connected') {
-            grid.innerHTML = `<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-plug-circle-xmark"></i>${meld.url ? 'Waiting for Meld Studio…' : 'Add your Meld tunnel address in settings to load your scenes.'}</div>`;
+        if (deck.status !== 'connected') {
+            grid.innerHTML = offlineHtml('scenes');
             return;
         }
-        if (!meld.scenes.length) { grid.innerHTML = '<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-clapperboard"></i>No scenes in Meld yet.</div>'; return; }
+        if (!deck.scenes.length) { grid.innerHTML = '<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-clapperboard"></i>No scenes in ' + esc(APP()) + ' yet.</div>'; return; }
         // Re-render only when something changed, so taps aren't interrupted
-        const sig = JSON.stringify(meld.scenes);
+        const sig = JSON.stringify(deck.scenes);
         if (grid.dataset.sig === sig) return;
         grid.dataset.sig = sig;
         grid.innerHTML = '';
-        meld.scenes.forEach(s => {
+        deck.scenes.forEach(s => {
             const b = document.createElement('button');
             b.className = 'tile scene' + (s.current ? ' current' : '') + (s.staged ? ' staged' : '');
             b.innerHTML = `<i class="fa-solid ${s.current ? 'fa-video' : 'fa-clapperboard'}"></i><span class="label">${esc(s.name)}</span>${s.current ? '<span class="onair">ON AIR</span>' : ''}`;
@@ -152,7 +155,7 @@
                 if (s.current) { haptic(8); return; }
                 haptic(15);
                 b.classList.add('busy');
-                try { await meld.call('showScene', s.id); } catch (e) { toast(e.message, true); }
+                try { await deck.showScene(s.id); } catch (e) { toast(e.message, true); }
                 setTimeout(() => b.classList.remove('busy'), 600);
             });
             grid.appendChild(b);
@@ -164,8 +167,8 @@
         const sel = $('sdMicSel');
         if (document.activeElement === sel) return;
         const cur = micTrack();
-        if (!meld.tracks.length) { sel.innerHTML = `<option value="">${meld.status === 'connected' ? 'No audio tracks in Meld' : 'Connect to Meld to pick'}</option>`; return; }
-        sel.innerHTML = meld.tracks.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.global ? '' : ' (layer)'}</option>`).join('');
+        if (!deck.tracks.length) { sel.innerHTML = `<option value="">${deck.status === 'connected' ? 'No audio in ' + esc(APP()) : 'Connect to ' + esc(APP()) + ' to pick'}</option>`; return; }
+        sel.innerHTML = deck.tracks.map(t => `<option value="${esc(t.id)}">${esc(t.name)}${t.global ? '' : ' (layer)'}</option>`).join('');
         if (cur) sel.value = cur.id;
         else sel.insertAdjacentHTML('afterbegin', '<option value="" selected>Pick your mic…</option>');
     }
@@ -173,24 +176,24 @@
     const streamConfirm = armable($('sdStream'),
         '<i class="fa-solid fa-triangle-exclamation"></i><span class="label">Tap again</span><span class="sub">to confirm</span>', 3500,
         async () => {
-            const ending = meld.isStreaming;
+            const ending = deck.isStreaming;
             try {
-                await meld.call('toggleStream');
+                await deck.stream('toggle');
                 toast(ending ? 'Ending stream…' : 'Going live…');
             } catch (e) { toast(e.message, true); }
-            renderMeld();
+            renderDeck();
         });
     // Show what the second tap will do
     $('sdStream').addEventListener('click', () => {
         if (!streamConfirm.isArmed()) return;
-        $('sdStream').querySelector('.label').textContent = meld.isStreaming ? 'Tap to END' : 'Tap to GO LIVE';
+        $('sdStream').querySelector('.label').textContent = deck.isStreaming ? 'Tap to END' : 'Tap to GO LIVE';
     });
 
     $('sdMic').addEventListener('click', async () => {
         const mic = micTrack();
         if (!mic) return;
         haptic(mic.muted ? 15 : [15, 30, 15]);
-        try { await meld.call('toggleMute', mic.id); } catch (e) { toast(e.message, true); }
+        try { await deck.setMute(mic.id); } catch (e) { toast(e.message, true); }
     });
 
     // ---------- Soundboard (plays on the PC via the dashboard) ----------
@@ -303,9 +306,9 @@
 
     // ---------- Shared tile helpers ----------
     const KIND_ICON = { camera: 'fa-video', browser: 'fa-globe', media: 'fa-film', image: 'fa-image', other: 'fa-layer-group' };
-    const sceneName = (id) => (meld.scenes.find(s => s.id === id) || {}).name || 'Scene';
-    const layerById = (id) => meld.layers.find(l => l.id === id);
-    const offlineHtml = (what) => `<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-plug-circle-xmark"></i>${meld.url ? 'Waiting for Meld Studio…' : `Add your Meld tunnel address in settings to load your ${what}.`}</div>`;
+    const sceneName = (id) => (deck.scenes.find(s => s.id === id) || {}).name || 'Scene';
+    const layerById = (id) => deck.layers.find(l => l.id === id);
+    const offlineHtml = (what) => `<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-plug-circle-xmark"></i>${deck.status === 'offline' && deck.stopped ? esc(deck.reason) : deck.url ? 'Waiting for ' + esc(deck.app.name) + '…' : `Add your tunnel address in settings to load your ${what}.`}</div>`;
     // Re-render a grid only when its data changed, so taps aren't interrupted
     function fillGrid(grid, sig, build) {
         if (grid.dataset.sig === sig) return;
@@ -321,23 +324,23 @@
         return b;
     }
     function groupTitle(text) { const d = document.createElement('div'); d.className = 'sd-group-title'; d.textContent = text; return d; }
-    async function meldTap(b, fn) {
+    async function deckTap(b, fn) {
         haptic(14);
         b.classList.add('busy');
         try { await fn(); } catch (e) { toast(e.message, true); }
         setTimeout(() => b.classList.remove('busy'), 500);
     }
 
-    // ---------- Audio tab: every Meld audio track ----------
+    // ---------- Audio tab: every audio source ----------
     function renderAudio() {
         const grid = $('sdAudio');
-        if (meld.status !== 'connected') { delete grid.dataset.sig; grid.innerHTML = offlineHtml('audio'); return; }
-        if (!meld.tracks.length) { delete grid.dataset.sig; grid.innerHTML = '<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-volume-xmark"></i>No audio tracks in Meld.</div>'; return; }
-        const live = meld.scenes.find(s => s.current);
-        const groups = [['Main audio', meld.tracks.filter(t => t.global)]];
+        if (deck.status !== 'connected') { delete grid.dataset.sig; grid.innerHTML = offlineHtml('audio'); return; }
+        if (!deck.tracks.length) { delete grid.dataset.sig; grid.innerHTML = '<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-volume-xmark"></i>No audio in ' + esc(APP()) + '.</div>'; return; }
+        const live = deck.scenes.find(s => s.current);
+        const groups = [['Main audio', deck.tracks.filter(t => t.global)]];
         const byScene = {};
-        meld.tracks.filter(t => !t.global).forEach(t => { const l = layerById(t.layerId); const sid = l ? l.sceneId : ''; (byScene[sid] = byScene[sid] || []).push(t); });
-        const order = meld.scenes.map(s => s.id).sort((a, b) => (live && b === live.id) - (live && a === live.id));
+        deck.tracks.filter(t => !t.global).forEach(t => { const l = layerById(t.layerId); const sid = t.sceneId || (l ? l.sceneId : ''); (byScene[sid] = byScene[sid] || []).push(t); });
+        const order = deck.scenes.map(s => s.id).sort((a, b) => (live && b === live.id) - (live && a === live.id));
         order.forEach(sid => { if (byScene[sid]) groups.push([`${sceneName(sid)}${live && sid === live.id ? ' · on air' : ''}`, byScene[sid]]); });
         fillGrid(grid, JSON.stringify([groups, live && live.id]), (g) => {
             groups.forEach(([title, tracks]) => {
@@ -345,7 +348,7 @@
                 g.appendChild(groupTitle(title));
                 tracks.forEach(t => g.appendChild(tile('toggle ' + (t.muted ? 'muted' : 'on'),
                     `<i class="fa-solid ${t.muted ? 'fa-volume-xmark' : (/\bmic|microphone/i.test(t.name) ? 'fa-microphone' : 'fa-volume-high')}"></i><span class="label">${esc(t.name)}</span><span class="sub">${t.muted ? 'Muted · tap to unmute' : 'Live · tap to mute'}</span>`,
-                    (b) => meldTap(b, () => meld.call('toggleMute', t.id)))));
+                    (b) => deckTap(b, () => deck.setMute(t.id)))));
             });
         });
     }
@@ -354,12 +357,12 @@
     let layerScene = '';   // scene picked in the Layers tab ('' = follow the live scene)
     function renderLayers() {
         const chips = $('sdLayerScenes'), grid = $('sdLayers');
-        if (meld.status !== 'connected') { chips.innerHTML = ''; delete chips.dataset.sig; delete grid.dataset.sig; grid.innerHTML = offlineHtml('layers and cameras'); return; }
-        const live = meld.scenes.find(s => s.current);
-        if (layerScene && !meld.scenes.some(s => s.id === layerScene)) layerScene = '';
-        const sid = layerScene || (live && live.id) || (meld.scenes[0] && meld.scenes[0].id);
-        fillGrid(chips, JSON.stringify([meld.scenes, sid]), (c) => {
-            meld.scenes.forEach(s => {
+        if (deck.status !== 'connected') { chips.innerHTML = ''; delete chips.dataset.sig; delete grid.dataset.sig; grid.innerHTML = offlineHtml('layers and cameras'); return; }
+        const live = deck.scenes.find(s => s.current);
+        if (layerScene && !deck.scenes.some(s => s.id === layerScene)) layerScene = '';
+        const sid = layerScene || (live && live.id) || (deck.scenes[0] && deck.scenes[0].id);
+        fillGrid(chips, JSON.stringify([deck.scenes, sid]), (c) => {
+            deck.scenes.forEach(s => {
                 const b = document.createElement('button');
                 b.className = 'sd-chip' + (s.id === sid ? ' active' : '');
                 b.innerHTML = `${esc(s.name)}${s.current ? '<span class="live">●</span>' : ''}`;
@@ -367,17 +370,17 @@
                 c.appendChild(b);
             });
         });
-        const layers = meld.layers.filter(l => l.sceneId === sid);
-        const effects = meld.effects.filter(e => layers.some(l => l.id === e.layerId));
+        const layers = deck.layers.filter(l => l.sceneId === sid);
+        const effects = deck.effects.filter(e => layers.some(l => l.id === e.layerId));
         if (!layers.length) { delete grid.dataset.sig; grid.innerHTML = '<div class="sd-empty" style="grid-column:1/-1"><i class="fa-solid fa-layer-group"></i>This scene has no layers.</div>'; return; }
         fillGrid(grid, JSON.stringify([layers, effects]), (g) => {
             layers.forEach(l => g.appendChild(tile('toggle ' + (l.visible ? 'on' : 'off'),
                 `<i class="fa-solid ${l.visible ? KIND_ICON[l.kind] : (l.kind === 'camera' ? 'fa-video-slash' : 'fa-eye-slash')}"></i><span class="label">${esc(l.name)}</span><span class="sub">${l.visible ? 'On · tap to hide' : 'Off · tap to show'}</span>`,
-                (b) => meldTap(b, () => meld.call('toggleLayer', l.sceneId, l.id)))));
+                (b) => deckTap(b, () => deck.setLayer(l.id)))));
             if (effects.length) g.appendChild(groupTitle('Effects'));
             effects.forEach(e => { const l = layerById(e.layerId); g.appendChild(tile('toggle ' + (e.enabled ? 'on' : 'off'),
                 `<i class="fa-solid fa-wand-magic-sparkles"></i><span class="label">${esc(e.name)}</span><span class="sub">${esc(l ? l.name : '')} · ${e.enabled ? 'On' : 'Off'}</span>`,
-                (b) => meldTap(b, () => meld.call('toggleEffect', l.sceneId, l.id, e.id)))); });
+                (b) => deckTap(b, () => deck.setEffect(e.id)))); });
         });
     }
 
@@ -412,52 +415,43 @@
     state.buttonsDirty = false;
     let editing = false;
 
-    const findScene = (s) => meld.scenes.find(x => x.id === s.sceneId) || meld.scenes.find(x => x.name === s.sceneName);
-    const findTrack = (s) => meld.tracks.find(x => x.id === s.trackId) || meld.tracks.find(x => x.name === s.trackName);
+    const findScene = (s) => deck.scenes.find(x => x.id === s.sceneId) || deck.scenes.find(x => x.name === s.sceneName);
+    const findTrack = (s) => deck.tracks.find(x => x.id === s.trackId) || deck.tracks.find(x => x.name === s.trackName);
     function findLayer(s) {
-        const byId = meld.layers.find(x => x.id === s.layerId);
+        const byId = deck.layers.find(x => x.id === s.layerId);
         if (byId) return byId;
         const sc = findScene(s);
-        return sc ? meld.layers.find(x => x.sceneId === sc.id && x.name === s.layerName) : null;
+        return sc ? deck.layers.find(x => x.sceneId === sc.id && x.name === s.layerName) : null;
     }
     function findEffect(s) {
-        const byId = meld.effects.find(x => x.id === s.effectId);
+        const byId = deck.effects.find(x => x.id === s.effectId);
         if (byId) return byId;
         const l = findLayer(s);
-        return l ? meld.effects.find(x => x.layerId === l.id && x.name === s.effectName) : null;
+        return l ? deck.effects.find(x => x.layerId === l.id && x.name === s.effectName) : null;
     }
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    const needMeld = () => { if (meld.status !== 'connected') throw new Error('Meld is offline.'); };
     async function relay(action) {
         const d = await teamApi('', { method: 'POST', body: JSON.stringify({ op: 'deck_relay', action }) });
         state.pcOnline = !!d.streamerOnline;
         if (!state.pcOnline) toast("Sent, but your LightFeed dashboard looks closed on your PC.", true);
     }
-    const cmd = (c) => meld.call('sendCommand', c);
+    const onOff = (mode, on, off) => mode === on ? true : mode === off ? false : null;   // null = flip
 
     async function runStep(s) {
+        const missing = (what, name) => new Error(`${what} "${name}" isn't in ${APP()}.`);
         switch (s.type) {
-            case 'scene': { needMeld(); const sc = findScene(s); if (!sc) throw new Error(`Scene "${s.sceneName}" isn't in Meld.`); if (!sc.current) await meld.call('showScene', sc.id); break; }
-            case 'mute': { needMeld(); const t = findTrack(s); if (!t) throw new Error(`Audio "${s.trackName}" isn't in Meld.`);
-                const want = s.mode === 'mute' ? true : s.mode === 'unmute' ? false : !t.muted;
-                if (t.muted !== want) await meld.call('toggleMute', t.id); break; }
-            case 'layer': { needMeld(); const l = findLayer(s); if (!l) throw new Error(`Layer "${s.layerName}" isn't in Meld.`);
-                const want = s.mode === 'show' ? true : s.mode === 'hide' ? false : !l.visible;
-                if (l.visible !== want) await meld.call('toggleLayer', l.sceneId, l.id); break; }
-            case 'effect': { needMeld(); const e = findEffect(s); const l = e && layerById(e.layerId); if (!e || !l) throw new Error(`Effect "${s.effectName}" isn't in Meld.`);
-                const want = s.mode === 'show' ? true : s.mode === 'hide' ? false : !e.enabled;
-                if (e.enabled !== want) await meld.call('toggleEffect', l.sceneId, l.id, e.id); break; }
-            case 'record': needMeld(); await cmd({ start: 'meld.startRecordingAction', stop: 'meld.stopRecordingAction' }[s.mode] || 'meld.toggleRecordingAction'); break;
-            case 'stream': needMeld(); await cmd({ start: 'meld.startStreamingAction', stop: 'meld.stopStreamingAction' }[s.mode] || 'meld.toggleStreamingAction'); break;
-            case 'clip': needMeld(); await cmd('meld.recordClip'); break;
-            case 'screenshot': needMeld(); await cmd('meld.screenshot'); break;
-            case 'vcam': needMeld(); await cmd('meld.toggleVirtualCameraAction'); break;
-            case 'marker': needMeld(); await cmd('meld.insertRecordingChapterMarker'); break;
+            case 'scene': { deck._need('scene'); const sc = findScene(s); if (!sc) throw missing('Scene', s.sceneName); await deck.showScene(sc.id); break; }
+            case 'mute': { deck._need('mute'); const t = findTrack(s); if (!t) throw missing('Audio', s.trackName); await deck.setMute(t.id, onOff(s.mode, 'mute', 'unmute')); break; }
+            case 'layer': { deck._need('layer'); const l = findLayer(s); if (!l) throw missing('Layer', s.layerName); await deck.setLayer(l.id, onOff(s.mode, 'show', 'hide')); break; }
+            case 'effect': { deck._need('effect'); const e = findEffect(s); if (!e) throw missing('Effect', s.effectName); await deck.setEffect(e.id, onOff(s.mode, 'show', 'hide')); break; }
+            case 'record': await deck.record(s.mode || 'toggle'); break;
+            case 'stream': await deck.stream(s.mode || 'toggle'); break;
+            case 'clip': case 'screenshot': case 'vcam': case 'marker': await deck.run(s.type); break;
             case 'sound': await relay({ type: 'sound', id: s.soundId, name: s.soundName }); break;
             case 'chat': await relay({ type: 'deck', id: s.deckId, title: s.deckTitle }); break;
             case 'wait': await sleep(Math.max(100, Math.min(10000, +s.ms || 500))); break;
         }
-        // Give Meld a moment to send back the new state before the next step reads it
+        // Give the app a moment to send back the new state before the next step reads it
         if (!['wait', 'sound', 'chat'].includes(s.type)) await sleep(150);
     }
 
@@ -482,14 +476,14 @@
 
     // What a one-step button should show (on/off etc.), or null
     function buttonState(btn) {
-        if (btn.steps.length !== 1 || meld.status !== 'connected') return null;
+        if (btn.steps.length !== 1 || deck.status !== 'connected') return null;
         const s = btn.steps[0];
         if (s.type === 'scene') { const sc = findScene(s); return sc ? { on: sc.current, text: sc.current ? 'On air' : 'Tap to switch' } : null; }
         if (s.type === 'mute') { const t = findTrack(s); return t ? { on: !t.muted, text: t.muted ? 'Muted' : 'Live' } : null; }
         if (s.type === 'layer') { const l = findLayer(s); return l ? { on: l.visible, text: l.visible ? 'On' : 'Off' } : null; }
         if (s.type === 'effect') { const e = findEffect(s); return e ? { on: e.enabled, text: e.enabled ? 'On' : 'Off' } : null; }
-        if (s.type === 'record') return { on: meld.isRecording, text: meld.isRecording ? 'Recording' : 'Not recording' };
-        if (s.type === 'stream') return { on: meld.isStreaming, text: meld.isStreaming ? 'Live' : 'Offline' };
+        if (s.type === 'record') return { on: deck.isRecording, text: deck.isRecording ? 'Recording' : 'Not recording' };
+        if (s.type === 'stream') return { on: deck.isStreaming, text: deck.isStreaming ? 'Live' : 'Offline' };
         return null;
     }
     function stepSummary(s) {
@@ -516,7 +510,7 @@
         $('sdEditToggle').classList.toggle('on', editing);
         $('sdBtnNote').textContent = editing ? 'Tap a button to change it.' : 'Your own buttons. Each one can do several things in a row.';
         const states = state.buttons.map(buttonState);
-        fillGrid(grid, JSON.stringify([state.buttons, states, editing, meld.status === 'connected']), (g) => {
+        fillGrid(grid, JSON.stringify([state.buttons, states, editing, deck.status === 'connected']), (g) => {
             if (!state.buttons.length && !editing) {
                 const empty = document.createElement('div');
                 empty.className = 'sd-empty'; empty.style.gridColumn = '1/-1';
@@ -565,27 +559,27 @@
     }
 
     function addStarterButtons() {
-        if (meld.status !== 'connected') { toast('Connect to Meld first, so the buttons can use your scenes, mic and cameras.', true); return; }
+        if (deck.status !== 'connected') { toast(`Connect to ${APP()} first, so the buttons can use your scenes, mic and cameras.`, true); return; }
         const out = [];
         const mic = micTrack();
         const id = () => 'b' + Math.random().toString(36).slice(2, 9);
         if (mic) out.push({ id: id(), label: 'Mic', icon: 'fa-microphone', color: '#22c55e', steps: [{ type: 'mute', trackId: mic.id, trackName: mic.name, mode: 'toggle' }] });
-        const live = meld.scenes.find(s => s.current);
+        const live = deck.scenes.find(s => s.current);
         const seen = new Set();
         // Cameras on air first, then ones that are showing in other scenes
         const rank = (l) => (live && l.sceneId === live.id ? 2 : 0) + (l.visible ? 1 : 0);
-        meld.layers.filter(l => l.kind === 'camera').sort((a, b) => rank(b) - rank(a)).forEach(l => {
+        deck.layers.filter(l => l.kind === 'camera').sort((a, b) => rank(b) - rank(a)).forEach(l => {
             if (seen.has(l.name) || seen.size >= 3) return; seen.add(l.name);
             out.push({ id: id(), label: l.name.split('/').pop(), icon: 'fa-video', color: '#00f0ff', steps: [{ type: 'layer', sceneId: l.sceneId, sceneName: sceneName(l.sceneId), layerId: l.id, layerName: l.name, mode: 'toggle' }] });
         });
-        const brb = meld.scenes.find(s => /\bbrb\b|be right back/i.test(s.name));
+        const brb = deck.scenes.find(s => /\bbrb\b|be right back/i.test(s.name));
         if (brb) {
             const steps = [{ type: 'scene', sceneId: brb.id, sceneName: brb.name }];
             if (mic) steps.push({ type: 'mute', trackId: mic.id, trackName: mic.name, mode: 'mute' });
             out.push({ id: id(), label: 'BRB', icon: 'fa-mug-hot', color: '#f59e0b', steps });
         }
-        out.push({ id: id(), label: 'Save Clip', icon: 'fa-scissors', color: '#ff5aad', steps: [{ type: 'clip' }] });
-        out.push({ id: id(), label: 'Screenshot', icon: 'fa-camera', color: '#3b82f6', steps: [{ type: 'screenshot' }] });
+        if (deck.can('clip')) out.push({ id: id(), label: 'Save Clip', icon: 'fa-scissors', color: '#ff5aad', steps: [{ type: 'clip' }] });
+        if (deck.can('screenshot')) out.push({ id: id(), label: 'Screenshot', icon: 'fa-camera', color: '#3b82f6', steps: [{ type: 'screenshot' }] });
         out.push({ id: id(), label: 'Record', icon: 'fa-circle-dot', color: '#ef4444', steps: [{ type: 'record', mode: 'toggle' }] });
         state.buttons = state.buttons.concat(out);
         haptic(20);
@@ -602,7 +596,7 @@
         $('sdEdLabel').value = draft.label || '';
         $('sdEdDelete').style.display = i >= 0 ? '' : 'none';
         $('sdEdMoveRow').style.display = i >= 0 && state.buttons.length > 1 ? '' : 'none';
-        $('sdEdAddType').innerHTML = Object.entries(STEP_DEFS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('');
+        $('sdEdAddType').innerHTML = Object.entries(STEP_DEFS).filter(([k]) => deck.can(k)).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('');
         renderEditor();
         $('sdEditorBg').classList.add('open'); $('sdEditor').classList.add('open');
         document.body.classList.add('sheet-open');
@@ -611,33 +605,35 @@
 
     function options(list, value, emptyLabel) {
         const has = list.some(o => o.value === value);
-        return (has || !value ? '' : `<option value="${esc(value)}" selected>${esc(emptyLabel)} (not in Meld right now)</option>`) +
+        return (has || !value ? '' : `<option value="${esc(value)}" selected>${esc(emptyLabel)} (not in ${esc(APP())} right now)</option>`) +
             list.map(o => o.group != null ? o.html : `<option value="${esc(o.value)}"${o.value === value ? ' selected' : ''}>${esc(o.label)}</option>`).join('');
     }
     function groupedOptions(items, value, label) {
         // items: [{ value, label, sceneId }] grouped by scene
         let html = '';
-        meld.scenes.forEach(sc => {
+        deck.scenes.forEach(sc => {
             const inScene = items.filter(x => x.sceneId === sc.id);
             if (!inScene.length) return;
             html += `<optgroup label="${esc(sc.name)}">` + inScene.map(o => `<option value="${esc(o.value)}"${o.value === value ? ' selected' : ''}>${esc(o.label)}</option>`).join('') + '</optgroup>';
         });
         const has = items.some(o => o.value === value);
-        return (value && !has ? `<option value="${esc(value)}" selected>${esc(label)} (not in Meld right now)</option>` : (!value ? '<option value="" selected>Pick one…</option>' : '')) + html;
+        return (value && !has ? `<option value="${esc(value)}" selected>${esc(label)} (not in ${esc(APP())} right now)</option>` : (!value ? '<option value="" selected>Pick one…</option>' : '')) + html;
     }
 
     function stepFields(s, idx) {
         const sel = (field, html) => `<select class="sd-select" data-f="${field}" data-i="${idx}">${html}</select>`;
         const modeSel = MODES[s.type] ? sel('mode', MODES[s.type].map(([v, l]) => `<option value="${v}"${(s.mode || 'toggle') === v ? ' selected' : ''}>${l}</option>`).join('')) : '';
-        const offline = meld.status !== 'connected' && ['scene', 'mute', 'layer', 'effect'].includes(s.type) ? '<span class="sd-note" style="margin:0">Connect to Meld to pick from your setup.</span>' : '';
+        const offline = deck.status !== 'connected' && ['scene', 'mute', 'layer', 'effect'].includes(s.type) ? '<span class="sd-note" style="margin:0">Connect to ' + esc(APP()) + ' to pick from your setup.</span>' : '';
+        const cant = !deck.can(s.type) ? '<span class="sd-note warn" style="margin:0">' + esc(deck.app.name) + " can't do this step. It will be skipped with an error.</span>" : '';
+        if (cant) return cant;
         switch (s.type) {
-            case 'scene': return sel('sceneId', (!s.sceneId ? '<option value="" selected>Pick a scene…</option>' : '') + options(meld.scenes.map(x => ({ value: x.id, label: x.name })), s.sceneId, s.sceneName || 'Scene')) + offline;
+            case 'scene': return sel('sceneId', (!s.sceneId ? '<option value="" selected>Pick a scene…</option>' : '') + options(deck.scenes.map(x => ({ value: x.id, label: x.name })), s.sceneId, s.sceneName || 'Scene')) + offline;
             case 'mute': {
-                const list = meld.tracks.map(t => { const l = layerById(t.layerId); return { value: t.id, label: t.global ? t.name : `${t.name} (${l ? sceneName(l.sceneId) : 'layer'})` }; });
+                const list = deck.tracks.map(t => { const l = layerById(t.layerId); return { value: t.id, label: t.global ? t.name : `${t.name} (${l ? sceneName(l.sceneId) : 'layer'})` }; });
                 return sel('trackId', (!s.trackId ? '<option value="" selected>Pick audio…</option>' : '') + options(list, s.trackId, s.trackName || 'Audio')) + modeSel + offline;
             }
-            case 'layer': return sel('layerId', groupedOptions(meld.layers.map(l => ({ value: l.id, label: `${l.kind === 'camera' ? '📷 ' : ''}${l.name}`, sceneId: l.sceneId })), s.layerId, s.layerName || 'Layer')) + modeSel + offline;
-            case 'effect': return sel('effectId', groupedOptions(meld.effects.map(e => { const l = layerById(e.layerId); return { value: e.id, label: `${e.name} (${l ? l.name : 'layer'})`, sceneId: l ? l.sceneId : '' }; }), s.effectId, s.effectName || 'Effect')) + modeSel + offline;
+            case 'layer': return sel('layerId', groupedOptions(deck.layers.map(l => ({ value: l.id, label: `${l.kind === 'camera' ? '📷 ' : ''}${l.name}`, sceneId: l.sceneId })), s.layerId, s.layerName || 'Layer')) + modeSel + offline;
+            case 'effect': return sel('effectId', groupedOptions(deck.effects.map(e => { const l = layerById(e.layerId); return { value: e.id, label: `${e.name} (${l ? l.name : 'layer'})`, sceneId: l ? l.sceneId : '' }; }), s.effectId, s.effectName || 'Effect')) + modeSel + offline;
             case 'record': case 'stream': return modeSel + (s.type === 'stream' ? '<span class="sd-note warn" style="margin:0">Buttons with this step need two taps.</span>' : '');
             case 'sound': { const list = ((state.shared && state.shared.soundboard) || []).map(x => ({ value: x.id, label: `${x.icon || '🔊'} ${x.name}` }));
                 return sel('soundId', (!s.soundId ? '<option value="" selected>Pick a sound…</option>' : '') + options(list, s.soundId, s.soundName || 'Sound')) + '<span class="sd-note" style="margin:0">Plays on your PC through the dashboard.</span>'; }
@@ -670,10 +666,10 @@
         const s = draft.steps[i];
         if (field === 'mode') s.mode = value;
         else if (field === 'ms') s.ms = +value;
-        else if (field === 'sceneId') { const x = meld.scenes.find(y => y.id === value); s.sceneId = value; s.sceneName = x ? x.name : s.sceneName; }
-        else if (field === 'trackId') { const x = meld.tracks.find(y => y.id === value); s.trackId = value; s.trackName = x ? x.name : s.trackName; }
+        else if (field === 'sceneId') { const x = deck.scenes.find(y => y.id === value); s.sceneId = value; s.sceneName = x ? x.name : s.sceneName; }
+        else if (field === 'trackId') { const x = deck.tracks.find(y => y.id === value); s.trackId = value; s.trackName = x ? x.name : s.trackName; }
         else if (field === 'layerId') { const x = layerById(value); s.layerId = value; if (x) { s.layerName = x.name; s.sceneId = x.sceneId; s.sceneName = sceneName(x.sceneId); } }
-        else if (field === 'effectId') { const x = meld.effects.find(y => y.id === value); s.effectId = value; if (x) { const l = layerById(x.layerId); s.effectName = x.name; if (l) { s.layerId = l.id; s.layerName = l.name; s.sceneId = l.sceneId; s.sceneName = sceneName(l.sceneId); } } }
+        else if (field === 'effectId') { const x = deck.effects.find(y => y.id === value); s.effectId = value; if (x) { const l = layerById(x.layerId); s.effectName = x.name; if (l) { s.layerId = l.id; s.layerName = l.name; s.sceneId = l.sceneId; s.sceneName = sceneName(l.sceneId); } } }
         else if (field === 'soundId') { const x = ((state.shared && state.shared.soundboard) || []).find(y => y.id === value); s.soundId = value; s.soundName = x ? x.name : s.soundName; }
         else if (field === 'deckId') { const x = ((state.shared && state.shared.deck) || []).find(y => y.id === value); s.deckId = value; s.deckTitle = x ? x.title : s.deckTitle; }
     }
@@ -754,7 +750,27 @@
     }));
 
     // ---------- Settings sheet ----------
+    const savedApp = () => (LFDeck.APPS[localStorage.getItem(KEY.app)] ? localStorage.getItem(KEY.app) : 'meld');
+    let sheetApp = 'meld';
+    const HELP = {
+        meld: ['Meld Studio turns its remote API on by itself (port 13376). Nothing to change in Meld.', 'Meld has no password, so <b>anyone with the tunnel address can control it</b>. Keep it private and close the tunnel when you\'re done.'],
+        obs: ['In OBS: <b>Tools › WebSocket Server Settings</b>. Tick <b>Enable WebSocket server</b>, keep <b>Enable Authentication</b> on, then <b>Show Connect Info</b> to copy the password.', 'Paste that password below. It stays on this phone and only goes to OBS.'],
+        streamlabs: ['In Streamlabs: <b>Settings › Remote Control</b>. Turn it on, tap the QR code, then <b>Show details</b> and copy the <b>API Token</b>.', 'Paste that token below. It stays on this phone and only goes to Streamlabs.']
+    };
+    function renderAppPick() {
+        const a = LFDeck.APPS[sheetApp];
+        document.querySelectorAll('#sdAppSel [data-app]').forEach(b => b.classList.toggle('active', b.dataset.app === sheetApp));
+        const cmdText = 'cloudflared tunnel --url http://127.0.0.1:' + a.port;
+        $('sdAppHelp').innerHTML = `<ol><li>${HELP[sheetApp][0]}</li><li>On your PC, run this (or double-click <b>Start-StreamDeckTunnel.bat</b>):<code>${esc(cmdText)}</code><button class="sd-btn" id="sdCmdCopy" type="button"><i class="fa-solid fa-copy"></i> Copy</button></li><li>Paste the <b>https://….trycloudflare.com</b> address it prints below.</li></ol><p class="sd-note${sheetApp === 'meld' ? ' warn' : ''}" style="margin:6px 0 0">${HELP[sheetApp][1]}</p>`;
+        $('sdCmdCopy').addEventListener('click', () => { try { navigator.clipboard.writeText(cmdText); toast('Copied. Run it on your PC.'); } catch (e) {} });
+        $('sdSecretWrap').style.display = a.secret ? '' : 'none';
+        $('sdSecretLabel').textContent = a.secret || '';
+        $('sdSecret').value = localStorage.getItem(secretKey(sheetApp)) || '';
+        $('sdSecret').type = 'password';
+    }
     function openSheet() {
+        sheetApp = savedApp();
+        renderAppPick();
         $('sdUrl').value = localStorage.getItem(KEY.url) || '';
         $('sdUrlErr').style.display = 'none';
         $('sdHaptics').checked = localStorage.getItem(KEY.haptics) !== 'off';
@@ -766,35 +782,53 @@
     function closeSheet() { $('sdSheetBg').classList.remove('open'); $('sdSheet').classList.remove('open'); document.body.classList.remove('sheet-open'); }
     function wireSettings() {
         $('sdSettingsBtn').addEventListener('click', () => { haptic(8); openSheet(); });
-        $('sdStatus').addEventListener('click', () => { if (meld.status === 'connected') return; haptic(8); if (!meld.url) openSheet(); else { meld.kick(); toast('Trying to reconnect…'); } });
+        $('sdStatus').addEventListener('click', () => {
+            if (deck.status === 'connected') return;
+            haptic(8);
+            if (!deck.url || deck.stopped) openSheet(); else { deck.kick(true); toast('Trying to reconnect…'); }
+        });
+        $('sdAppSel').addEventListener('click', (e) => { const b = e.target.closest('[data-app]'); if (!b) return; haptic(6); sheetApp = b.dataset.app; renderAppPick(); });
+        $('sdSecretShow').addEventListener('click', () => { const i = $('sdSecret'); i.type = i.type === 'password' ? 'text' : 'password'; });
         $('sdSheetBg').addEventListener('click', closeSheet);
         $('sdSheetClose').addEventListener('click', closeSheet);
         $('sdUrlSave').addEventListener('click', () => {
             let url;
-            try { url = LFMeld.normalizeUrl($('sdUrl').value); }
+            try { url = LFDeck.normalizeUrl($('sdUrl').value); }
             catch (e) { $('sdUrlErr').textContent = e.message; $('sdUrlErr').style.display = ''; haptic([40, 40, 40]); return; }
             if (!url) { $('sdUrlErr').textContent = 'Paste your tunnel address first.'; $('sdUrlErr').style.display = ''; return; }
+            const secret = $('sdSecret').value.trim();
+            if (LFDeck.APPS[sheetApp].secret && !secret) { $('sdUrlErr').textContent = `Paste your ${LFDeck.APPS[sheetApp].secret} too.`; $('sdUrlErr').style.display = ''; return; }
+            localStorage.setItem(KEY.app, sheetApp);
+            if (LFDeck.APPS[sheetApp].secret) localStorage.setItem(secretKey(sheetApp), secret);
             localStorage.setItem(KEY.url, url);
             $('sdUrl').value = url;
             $('sdUrlErr').style.display = 'none';
             haptic(15);
             clearSceneCache();
-            meld.setUrl(url);
+            connectSaved();
             closeSheet();
         });
         $('sdUrlForget').addEventListener('click', () => {
             localStorage.removeItem(KEY.url);
-            $('sdUrl').value = '';
+            Object.keys(LFDeck.APPS).forEach(a => localStorage.removeItem(secretKey(a)));
+            $('sdUrl').value = ''; $('sdSecret').value = '';
             clearSceneCache();
-            meld.setUrl('');
-            toast('Tunnel address removed from this phone.');
+            connectSaved();
+            toast('Tunnel address and passwords removed from this phone.');
         });
         $('sdMicSel').addEventListener('change', () => {
             if ($('sdMicSel').value) localStorage.setItem(KEY.mic, $('sdMicSel').value);
-            renderMeld();
+            renderDeck();
         });
         $('sdHaptics').addEventListener('change', () => { localStorage.setItem(KEY.haptics, $('sdHaptics').checked ? 'on' : 'off'); haptic(15); });
         $('sdWake').addEventListener('change', () => { localStorage.setItem(KEY.wake, $('sdWake').checked ? 'on' : 'off'); updateWakeLock(); });
+    }
+
+    function connectSaved() {
+        const app = savedApp();
+        lastStatus = '';   // a deliberate switch, so no "Lost connection" toast
+        deck.configure({ app, url: localStorage.getItem(KEY.url) || '', secret: localStorage.getItem(secretKey(app)) || '' });
+        $('sdStatus').title = 'Connection to ' + deck.app.name;
     }
 
     // Remember to come back here after logging in
@@ -809,10 +843,6 @@
         catch (e) { return gate('<i class="fa-solid fa-wifi"></i>Couldn\'t reach Twitch. Check your connection and refresh.'); }
         if (!v) { $('sdWho').textContent = 'LOGIN EXPIRED'; return gate('<i class="fa-brands fa-twitch"></i>Your Twitch login has expired.' + loginBtn('Log in again')); }
         const login = (v.login || '').toLowerCase();
-        if (!DECK_OWNERS.includes(login)) {
-            $('sdWho').textContent = 'PRIVATE';
-            return gate('<i class="fa-solid fa-lock"></i>This page is private.<br><br><a class="sd-btn" href="index.html"><i class="fa-solid fa-arrow-left"></i> Back to LightFeed</a>');
-        }
         state.me = login;
         state.auth = { token, clientId: v.client_id, userId: v.user_id, broadcasterId: v.user_id };
         $('sdWho').textContent = 'LOGGED IN AS ' + login.toUpperCase();
@@ -826,10 +856,9 @@
         showTab(localStorage.getItem('lf_deck_tab') || 'buttons');
         renderModes();
 
-        const url = localStorage.getItem(KEY.url) || '';
-        meld.setUrl(url);
-        renderMeld();
-        if (!url) openSheet();
+        connectSaved();
+        renderDeck();
+        if (!deck.url) openSheet();
 
         setInterval(() => { if (!document.hidden) loadShared(); }, 30000);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) loadShared(); });
