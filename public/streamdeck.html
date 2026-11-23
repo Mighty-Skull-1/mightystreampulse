@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#09090b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="robots" content="noindex">
+    <title>Stream Deck - LightFeed</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        html, body { height: 100%; }
+        body {
+            background: var(--bg-base); color: var(--text-primary); margin: 0; min-height: 100vh; display: block;
+            -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+        }
+        .sd-wrap {
+            max-width: 1100px; margin: 0 auto; box-sizing: border-box;
+            padding: calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+        }
+        .sd-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .sd-brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+        .sd-brand .badge { width: 36px; height: 36px; flex: none; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, var(--primary), #ff2d95); color: #fff; }
+        .sd-brand h1 { font-size: 1rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        @media (max-width: 400px) { .sd-brand h1 .long { display: none; } }
+        .sd-brand small { display: block; color: var(--accent); font-weight: 700; letter-spacing: .08em; font-size: .64rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sd-icon-btn { width: 42px; height: 42px; flex: none; border-radius: 12px; border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-primary); font-size: 1.05rem; cursor: pointer; }
+
+        /* Connection status */
+        .sd-status { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; font-size: .76rem; font-weight: 800; border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-secondary); white-space: nowrap; cursor: pointer; }
+        .sd-status .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+        .sd-status.connected { color: #4ade80; border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.12); }
+        .sd-status.reconnecting { color: #fbbf24; border-color: rgba(245,158,11,.5); background: rgba(245,158,11,.12); }
+        .sd-status.reconnecting .dot { animation: sdPulse 1s ease-in-out infinite; }
+        .sd-status.offline { color: #f87171; border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.12); }
+        @keyframes sdPulse { 50% { opacity: .25; } }
+        .sd-reason { font-size: .78rem; color: var(--text-secondary); margin: -4px 0 12px; min-height: 1em; }
+
+        /* Layout: controls + tabs. Side-by-side in landscape */
+        .sd-main { display: grid; gap: 14px; }
+        @media (orientation: landscape) and (min-width: 640px) {
+            .sd-main { grid-template-columns: minmax(220px, 32%) 1fr; align-items: start; }
+            .sd-controls { position: sticky; top: 10px; grid-template-columns: 1fr !important; }
+        }
+
+        /* Tiles */
+        .sd-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .tile {
+            position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+            min-height: 112px; padding: 14px 10px; box-sizing: border-box; border-radius: 18px; cursor: pointer;
+            background: var(--bg-card); border: 2px solid var(--border-subtle); color: var(--text-primary);
+            font: inherit; font-weight: 800; text-align: center; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+            transition: transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+        }
+        .tile:active { transform: scale(.96); }
+        .tile i { font-size: 1.9rem; }
+        .tile .label { font-size: 1rem; line-height: 1.15; }
+        .tile .sub { font-size: .72rem; font-weight: 700; color: var(--text-secondary); letter-spacing: .02em; }
+        .tile[disabled], .tile.disabled { opacity: .45; pointer-events: none; }
+        .tile.busy::after { content: ''; position: absolute; inset: -2px; border-radius: 18px; border: 2px solid var(--accent); animation: sdPulse .8s ease-in-out infinite; }
+
+        .tile.mic.live { border-color: rgba(34,197,94,.6); background: rgba(34,197,94,.12); }
+        .tile.mic.live i { color: #4ade80; }
+        .tile.mic.muted { border-color: rgba(239,68,68,.7); background: rgba(239,68,68,.16); }
+        .tile.mic.muted i { color: #f87171; }
+
+        .tile.stream.live { border-color: rgba(239,68,68,.75); background: rgba(239,68,68,.16); }
+        .tile.stream.live i { color: #f87171; }
+        .tile.stream.armed { border-color: #fbbf24; background: rgba(245,158,11,.22); animation: sdArmed .6s ease-in-out infinite alternate; }
+        .tile.stream.armed i { color: #fbbf24; }
+        @keyframes sdArmed { to { box-shadow: 0 0 0 4px rgba(245,158,11,.25); } }
+        .sd-live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; margin-right: 6px; vertical-align: middle; animation: sdPulse 1.2s infinite; }
+
+        /* Tabs */
+        .sd-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 5px; border-radius: 14px; background: var(--bg-surface); border: 1px solid var(--border-subtle); margin-bottom: 12px; position: sticky; top: 0; z-index: 5; }
+        .sd-tab { border: 0; border-radius: 10px; padding: 11px 6px; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 800; font-size: .86rem; cursor: pointer; touch-action: manipulation; }
+        .sd-tab.active { background: var(--primary); color: #fff; }
+        .sd-section { display: none; }
+        .sd-section.active { display: block; }
+        .sd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+        @media (max-width: 360px) { .sd-grid { grid-template-columns: 1fr 1fr; } }
+
+        .tile.scene { min-height: 96px; }
+        .tile.scene i { font-size: 1.4rem; color: var(--text-secondary); }
+        .tile.scene.current { border-color: var(--primary); background: rgba(var(--primary-rgb), .22); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), .25); }
+        .tile.scene.current i { color: #fff; }
+        .tile.scene .onair { font-size: .66rem; font-weight: 900; letter-spacing: .1em; color: #fff; background: #ef4444; padding: 2px 8px; border-radius: 999px; }
+        .tile.scene.staged:not(.current) { border-style: dashed; border-color: var(--accent); }
+
+        .tile.sound { min-height: 96px; }
+        .tile.sound .emoji { font-size: 1.9rem; line-height: 1; }
+        .tile.sound.hit { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .3); }
+
+        .tile.mod.on { border-color: rgba(34,197,94,.6); background: rgba(34,197,94,.12); }
+        .tile.mod.on i { color: #4ade80; }
+        .tile.mod.danger i { color: #f87171; }
+        .tile.mod.armed { border-color: #fbbf24; background: rgba(245,158,11,.2); }
+        .sd-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 14px; margin-top: 12px; }
+        .sd-card h3 { margin: 0 0 10px; font-size: .95rem; }
+        .sd-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .sd-row > * { flex: 1 1 120px; }
+        .sd-input, .sd-select {
+            width: 100%; box-sizing: border-box; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-subtle);
+            border-radius: 10px; padding: 12px; font-size: 16px; /* 16px stops iOS zooming in */
+        }
+        .sd-btn { min-height: 46px; border-radius: 12px; border: 1px solid var(--border-subtle); background: var(--bg-card-hover); color: var(--text-primary); font: inherit; font-weight: 800; cursor: pointer; touch-action: manipulation; }
+        .sd-btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .sd-btn.danger { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.6); color: #fca5a5; }
+        .sd-note { font-size: .8rem; color: var(--text-secondary); margin: 0 0 12px; }
+        .sd-note.warn { color: #fbbf24; }
+        .sd-empty { text-align: center; padding: 30px 12px; color: var(--text-secondary); font-size: .9rem; }
+        .sd-empty i { display: block; font-size: 1.8rem; margin-bottom: 10px; color: var(--accent); }
+
+        /* Gate / messages */
+        .sd-msg { text-align: center; padding: 70px 18px; color: var(--text-secondary); }
+        .sd-msg i { font-size: 2.4rem; color: var(--accent); margin-bottom: 14px; display: block; }
+        .sd-msg .sd-btn { display: inline-flex; align-items: center; gap: 8px; padding: 0 20px; text-decoration: none; margin-top: 18px; }
+
+        /* Settings sheet */
+        .sd-sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 50; display: none; }
+        .sd-sheet-bg.open { display: block; }
+        .sd-sheet {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; max-height: 92vh; overflow-y: auto;
+            background: var(--bg-surface); border-top: 1px solid var(--border-bright); border-radius: 20px 20px 0 0;
+            padding: 18px calc(16px + env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+            transform: translateY(105%); transition: transform .22s ease; max-width: 640px; margin: 0 auto; box-sizing: border-box;
+        }
+        .sd-sheet.open { transform: none; }
+        .sd-sheet h2 { margin: 0 0 4px; font-size: 1.1rem; }
+        .sd-sheet label { display: block; font-size: .8rem; font-weight: 700; color: var(--text-secondary); margin: 16px 0 6px; }
+        .sd-sheet .sd-row { margin-top: 10px; }
+        .sd-check { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-weight: 700; font-size: .9rem; }
+        .sd-check input { width: 22px; height: 22px; accent-color: var(--primary); }
+
+        #sdToasts { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: max-content; max-width: 92vw; }
+        .sd-toast { background: var(--bg-card); border: 1px solid var(--accent); color: var(--text-primary); padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: .88rem; box-shadow: 0 8px 24px rgba(0,0,0,.5); text-align: center; }
+        .sd-toast.err { border-color: #f87171; color: #fca5a5; }
+    </style>
+</head>
+<body>
+<div class="sd-wrap">
+    <div class="sd-top">
+        <div class="sd-brand">
+            <div class="badge"><i class="fa-solid fa-mobile-screen-button"></i></div>
+            <div style="min-width:0"><h1><span class="long">LightFeed </span>Stream Deck</h1><small id="sdWho">LOADING…</small></div>
+        </div>
+        <button id="sdStatus" class="sd-status offline" style="display:none" title="Connection to Meld Studio"><span class="dot"></span><span id="sdStatusText">Offline</span></button>
+        <button id="sdSettingsBtn" class="sd-icon-btn" style="display:none" title="Settings" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+    </div>
+
+    <div id="sdGate"><div class="sd-msg"><i class="fa-solid fa-spinner fa-spin"></i>Checking your login…</div></div>
+
+    <div id="sdApp" style="display:none">
+        <p class="sd-reason" id="sdReason"></p>
+        <div class="sd-main">
+            <div class="sd-controls">
+                <button class="tile stream disabled" id="sdStream"><i class="fa-solid fa-tower-broadcast"></i><span class="label">Go Live</span><span class="sub">Meld offline</span></button>
+                <button class="tile mic disabled" id="sdMic"><i class="fa-solid fa-microphone"></i><span class="label">Mic</span><span class="sub">Meld offline</span></button>
+            </div>
+            <div>
+                <div class="sd-tabs" role="tablist">
+                    <button class="sd-tab active" data-sec="scenes"><i class="fa-solid fa-clapperboard"></i> Scenes</button>
+                    <button class="sd-tab" data-sec="sounds"><i class="fa-solid fa-volume-high"></i> Sounds</button>
+                    <button class="sd-tab" data-sec="mod"><i class="fa-solid fa-shield-halved"></i> Mod</button>
+                </div>
+
+                <section class="sd-section active" id="sec-scenes">
+                    <div class="sd-grid" id="sdScenes"></div>
+                </section>
+
+                <section class="sd-section" id="sec-sounds">
+                    <p class="sd-note" id="sdPcNote">Sounds play on your PC through your LightFeed dashboard.</p>
+                    <div class="sd-grid" id="sdSounds"></div>
+                </section>
+
+                <section class="sd-section" id="sec-mod">
+                    <div class="sd-grid">
+                        <button class="tile mod" data-mode="emote"><i class="fa-solid fa-face-smile"></i><span class="label">Emote-Only</span><span class="sub" data-state>…</span></button>
+                        <button class="tile mod" data-mode="slow"><i class="fa-solid fa-gauge-simple-high"></i><span class="label">Slow Mode</span><span class="sub" data-state>…</span></button>
+                        <button class="tile mod" data-mode="sub"><i class="fa-solid fa-star"></i><span class="label">Sub-Only</span><span class="sub" data-state>…</span></button>
+                        <button class="tile mod danger" id="sdClear"><i class="fa-solid fa-broom"></i><span class="label">Clear Chat</span><span class="sub">Tap twice</span></button>
+                    </div>
+                    <div class="sd-card">
+                        <h3><i class="fa-solid fa-gauge-simple-high" style="color: var(--accent)"></i> Slow mode speed</h3>
+                        <select class="sd-select" id="sdSlowSec">
+                            <option value="5">5 seconds</option><option value="10">10 seconds</option><option value="30" selected>30 seconds</option><option value="60">60 seconds (1 min)</option><option value="120">120 seconds (2 min)</option>
+                        </select>
+                    </div>
+                    <div class="sd-card">
+                        <h3><i class="fa-solid fa-user-slash" style="color: #f87171"></i> Quick User Timeout</h3>
+                        <div class="sd-row">
+                            <input class="sd-input" id="sdToUser" placeholder="Username (no @)" maxlength="25" autocapitalize="off" autocomplete="off" spellcheck="false">
+                            <select class="sd-select" id="sdToDur"><option value="60">1 minute</option><option value="300">5 minutes</option><option value="600" selected>10 minutes</option><option value="3600">1 hour</option></select>
+                        </div>
+                        <div class="sd-row"><button class="sd-btn" id="sdTimeout"><i class="fa-solid fa-ban"></i> Timeout</button></div>
+                    </div>
+                    <div class="sd-card">
+                        <h3><i class="fa-solid fa-terminal" style="color: #10b981"></i> Custom Mod Command</h3>
+                        <div class="sd-row">
+                            <input class="sd-input" id="sdCmd" placeholder="e.g. /followers 10" autocapitalize="off" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="sd-row"><button class="sd-btn primary" id="sdCmdRun"><i class="fa-solid fa-play"></i> Run</button></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="sd-sheet-bg" id="sdSheetBg"></div>
+<div class="sd-sheet" id="sdSheet" role="dialog" aria-label="Stream Deck settings">
+    <h2><i class="fa-solid fa-gear"></i> Stream Deck settings</h2>
+    <p class="sd-note">Saved on this phone only.</p>
+
+    <label for="sdUrl">Meld tunnel address (Cloudflare Tunnel)</label>
+    <input class="sd-input" id="sdUrl" type="url" inputmode="url" placeholder="https://your-tunnel.trycloudflare.com" autocapitalize="off" autocomplete="off" spellcheck="false">
+    <p class="sd-note" style="margin-top:6px">Paste the https:// address cloudflared prints. Anyone with this address can control Meld, so keep it private. <a href="https://github.com/Mighty-Skull-1/mightystreampulse#-phone-stream-deck-meld-studio" target="_blank" rel="noopener" style="color: var(--accent)">Setup guide</a></p>
+    <p class="sd-note warn" id="sdUrlErr" style="display:none"></p>
+    <div class="sd-row">
+        <button class="sd-btn primary" id="sdUrlSave"><i class="fa-solid fa-plug"></i> Save &amp; connect</button>
+        <button class="sd-btn" id="sdUrlForget">Forget</button>
+    </div>
+
+    <label for="sdMicSel">Mic track</label>
+    <select class="sd-select" id="sdMicSel"><option value="">Connect to Meld to pick</option></select>
+
+    <label class="sd-check"><input type="checkbox" id="sdHaptics" checked> Vibrate on tap (if your phone supports it)</label>
+    <label class="sd-check"><input type="checkbox" id="sdWake" checked> Keep screen on while connected</label>
+
+    <div class="sd-row" style="margin-top:20px">
+        <a class="sd-btn" href="index.html" style="display:flex;align-items:center;justify-content:center;text-decoration:none"><i class="fa-solid fa-arrow-left"></i>&nbsp; Dashboard</a>
+        <button class="sd-btn" id="sdSheetClose">Done</button>
+    </div>
+</div>
+<div id="sdToasts"></div>
+
+<script src="lf-shared.js"></script>
+<script src="meld-client.js"></script>
+<script src="streamdeck.js"></script>
+</body>
+</html>

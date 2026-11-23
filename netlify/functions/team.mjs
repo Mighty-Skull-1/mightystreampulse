@@ -11,6 +11,9 @@ const MAX_PENDING = 40;
 const MAX_SHARED_BYTES = 400 * 1024;
 const ACTIVE_WINDOW_MS = 3 * 60 * 1000;
 const ACTION_TYPES = ['deck', 'sound', 'hype', 'poll_start', 'poll_end', 'giveaway_start', 'giveaway_pick', 'giveaway_reset', 'trivia'];
+// Twitch logins allowed to use the phone Stream Deck (streamdeck.html). Nobody else, not even their mods.
+const DECK_OWNERS = ['mightyttv0'];
+const DECK_ACTION_TYPES = ['sound'];
 
 const json = (status, body) => new Response(JSON.stringify(body), {
     status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
@@ -65,7 +68,8 @@ export default async (req) => {
         if (url.searchParams.get('mine')) {
             const mods = await getJSON(store, `owner/${me.login}/mods`, []);
             const modBeat = await getJSON(store, `beat/${me.login}/mods`, {});
-            return json(200, { owner: me.login, mods, modsActive: Object.values(modBeat).some(t => now - t < ACTIVE_WINDOW_MS), modBeat });
+            const deckBeat = await getJSON(store, `beat/${me.login}/deck`, 0);
+            return json(200, { owner: me.login, mods, modsActive: Object.values(modBeat).some(t => now - t < ACTIVE_WINDOW_MS), modBeat, deck: DECK_OWNERS.includes(me.login), deckActive: now - deckBeat < ACTIVE_WINDOW_MS });
         }
 
         // Streamer: collect actions sent by mods
@@ -80,7 +84,17 @@ export default async (req) => {
                 await store.delete(k);
             }
             const modBeat = await getJSON(store, `beat/${me.login}/mods`, {});
-            return json(200, { actions, modsActive: Object.values(modBeat).some(t => now - t < ACTIVE_WINDOW_MS) });
+            const deckBeat = await getJSON(store, `beat/${me.login}/deck`, 0);
+            return json(200, { actions, modsActive: Object.values(modBeat).some(t => now - t < ACTIVE_WINDOW_MS), deckActive: now - deckBeat < ACTIVE_WINDOW_MS });
+        }
+
+        // Owner's phone Stream Deck: load my own shared setup
+        if (url.searchParams.get('deck')) {
+            if (!DECK_OWNERS.includes(me.login)) return json(403, { error: 'The Stream Deck is private.' });
+            await store.setJSON(`beat/${me.login}/deck`, now);
+            const shared = await getJSON(store, `owner/${me.login}/shared`, {});
+            const streamerBeat = await getJSON(store, `beat/${me.login}/streamer`, 0);
+            return json(200, { me: me.login, shared, streamerOnline: now - streamerBeat < 90 * 1000 });
         }
 
         // Mod: which channels can I manage?
@@ -166,6 +180,20 @@ export default async (req) => {
             };
             await store.setJSON(`owner/${me.login}/shared`, shared);
             return json(200, { ok: true });
+        }
+
+        // Owner's phone Stream Deck sends an action to their own dashboard (e.g. play a sound on the PC)
+        if (op === 'deck_relay') {
+            if (!DECK_OWNERS.includes(me.login)) return json(403, { error: 'The Stream Deck is private.' });
+            const action = cleanAction(body.action);
+            if (!action || !DECK_ACTION_TYPES.includes(action.type)) return json(400, { error: 'That action is not allowed.' });
+            const { blobs } = await store.list({ prefix: `relay/${me.login}/` });
+            if (blobs.length >= MAX_PENDING) return json(429, { error: 'Slow down! Your dashboard is catching up.' });
+            const key = `relay/${me.login}/${String(now).padStart(15, '0')}-${crypto.randomUUID().slice(0, 8)}`;
+            await store.setJSON(key, { ...action, by: me.login, via: 'deck', at: now });
+            await store.setJSON(`beat/${me.login}/deck`, now);
+            const streamerBeat = await getJSON(store, `beat/${me.login}/streamer`, 0);
+            return json(200, { queued: true, streamerOnline: now - streamerBeat < 90 * 1000 });
         }
 
         // Mod sends an action to the streamer's dashboard

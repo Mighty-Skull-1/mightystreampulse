@@ -1331,27 +1331,6 @@ async function getHelixAuthContext() {
     return { token, clientId, userId, broadcasterId, channel };
 }
 
-async function fetchTwitchUserId(username, clientId, token) {
-    try {
-        const cleanUser = (username || '').trim().toLowerCase().replace('@', '');
-        const res = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(cleanUser)}`, {
-            headers: {
-                'Client-ID': clientId,
-                'Authorization': 'Bearer ' + token
-            }
-        });
-        if (res.ok) {
-            const data = await res.json();
-            if (data.data && data.data[0]) {
-                return data.data[0].id;
-            }
-        }
-    } catch (e) {
-        console.error('fetchTwitchUserId error:', e);
-    }
-    return null;
-}
-
 function handleHelixModError(status, errData, actionName) {
     console.error('Helix moderation error:', status, errData);
     let msg = (errData && (errData.message || errData.error)) || 'Unknown Twitch API error';
@@ -1366,266 +1345,24 @@ function handleHelixModError(status, errData, actionName) {
 async function execModeration(cmd, extraParams = {}) {
     try {
         const auth = await getHelixAuthContext();
-        const cleanCmd = (cmd || '').trim().toLowerCase();
-
-        // 1. Clear Chat (/clear)
-        if (cleanCmd === '/clear') {
-            const url = `https://api.twitch.tv/helix/moderation/chat?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
-            const res = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token
-                }
-            });
-
-            if (res.status === 204 || res.ok) {
-                chatFeed.innerHTML = '<div class="empty-state"><i class="fa-solid fa-broom"></i><p>Chat was cleared by moderator.</p></div>';
-                alert('🧹 Chat was cleared successfully on Twitch!');
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, 'Clear Chat');
-                return false;
-            }
-        }
-
-        // 2. Emote-Only Mode (/emoteonly and /emoteonlyoff)
-        if (cleanCmd === '/emoteonly' || cleanCmd === '/emoteonlyoff') {
-            const enabled = cleanCmd === '/emoteonly';
-            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ emote_mode: enabled })
-            });
-
-            if (res.ok) {
-                alert(enabled ? '😊 Emote-Only chat enabled on Twitch!' : '💬 Emote-Only chat disabled on Twitch!');
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, 'Emote-Only Mode');
-                return false;
-            }
-        }
-
-        // 3. Slow Mode (/slow <seconds> and /slowoff)
-        if (cleanCmd.startsWith('/slow') || cleanCmd === '/slowoff') {
-            const enabled = cleanCmd !== '/slowoff';
-            let seconds = 30;
-            if (enabled) {
-                const parts = cleanCmd.split(' ');
-                if (parts.length > 1 && !isNaN(parseInt(parts[1], 10))) {
-                    seconds = parseInt(parts[1], 10);
-                } else if (extraParams.seconds) {
-                    seconds = parseInt(extraParams.seconds, 10);
-                }
-            }
-            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(enabled ? { slow_mode: true, slow_mode_wait_time: seconds } : { slow_mode: false })
-            });
-
-            if (res.ok) {
-                alert(enabled ? `⏱️ Slow mode enabled (${seconds}s) on Twitch!` : '⚡ Slow mode disabled on Twitch!');
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, 'Slow Mode');
-                return false;
-            }
-        }
-
-        // 4. Sub-Only Chat (/subscribers and /subscribersoff)
-        if (cleanCmd === '/subscribers' || cleanCmd === '/subscribersoff' || cleanCmd === '/subonly' || cleanCmd === '/subonlyoff') {
-            const enabled = cleanCmd === '/subscribers' || cleanCmd === '/subonly';
-            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ subscriber_mode: enabled })
-            });
-
-            if (res.ok) {
-                alert(enabled ? '⭐ Sub-Only chat enabled on Twitch!' : '⭐ Sub-Only chat disabled on Twitch!');
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, 'Sub-Only Chat');
-                return false;
-            }
-        }
-
-        // 5. Follower-Only Chat (/followers <duration> and /followersoff)
-        if (cleanCmd.startsWith('/followers') || cleanCmd === '/followersoff') {
-            const enabled = cleanCmd !== '/followersoff';
-            let durationMin = 0;
-            if (enabled) {
-                const match = cleanCmd.match(/\/followers\s+(\d+)/);
-                if (match) durationMin = parseInt(match[1], 10);
-            }
-            const url = `https://api.twitch.tv/helix/chat/settings?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(enabled ? { follower_mode: true, follower_mode_duration: durationMin } : { follower_mode: false })
-            });
-
-            if (res.ok) {
-                alert(enabled ? `Follower-Only mode enabled (${durationMin}m) on Twitch!` : 'Follower-Only mode disabled on Twitch!');
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, 'Follower-Only Mode');
-                return false;
-            }
-        }
-
-        // 6. User Timeout (/timeout <user> [duration] [reason])
-        if (cleanCmd.startsWith('/timeout ') || extraParams.action === 'timeout') {
-            let targetUser = extraParams.target || '';
-            let durationSec = extraParams.duration ? parseInt(extraParams.duration, 10) : 600;
-            let reason = extraParams.reason || 'Timed out via LightFeed';
-
-            if (!targetUser && cleanCmd.startsWith('/timeout ')) {
-                const parts = cmd.trim().split(/\s+/);
-                targetUser = parts[1] ? parts[1].replace('@', '') : '';
-                if (parts[2] && !isNaN(parseInt(parts[2], 10))) {
-                    durationSec = parseInt(parts[2], 10);
-                }
-                if (parts.length > 3) {
-                    reason = parts.slice(3).join(' ');
-                }
-            }
-
-            if (!targetUser) {
-                alert('Please provide a username to timeout.');
-                return false;
-            }
-
-            const targetId = await fetchTwitchUserId(targetUser, auth.clientId, auth.token);
-            if (!targetId) {
-                alert(`Could not find Twitch user "${targetUser}". Check username spelling.`);
-                return false;
-            }
-
-            const url = `https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    data: {
-                        user_id: targetId,
-                        duration: durationSec,
-                        reason: reason
-                    }
-                })
-            });
-
-            if (res.ok) {
-                alert(`🚫 Timed out @${targetUser} for ${durationSec}s!`);
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, `Timeout @${targetUser}`);
-                return false;
-            }
-        }
-
-        // 7. Ban User (/ban <user> [reason])
-        if (cleanCmd.startsWith('/ban ')) {
-            const parts = cmd.trim().split(/\s+/);
-            const targetUser = parts[1] ? parts[1].replace('@', '') : '';
-            const reason = parts.length > 2 ? parts.slice(2).join(' ') : 'Banned via LightFeed';
-            if (!targetUser) return alert('Provide username to ban');
-
-            const targetId = await fetchTwitchUserId(targetUser, auth.clientId, auth.token);
-            if (!targetId) return alert(`User "${targetUser}" not found.`);
-
-            const url = `https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}`;
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    data: {
-                        user_id: targetId,
-                        reason: reason
-                    }
-                })
-            });
-
-            if (res.ok) {
-                alert(`🔨 Permanently banned @${targetUser} from channel!`);
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, `Ban @${targetUser}`);
-                return false;
-            }
-        }
-
-        // 8. Unban User (/unban <user>)
-        if (cleanCmd.startsWith('/unban ')) {
-            const parts = cmd.trim().split(/\s+/);
-            const targetUser = parts[1] ? parts[1].replace('@', '') : '';
-            if (!targetUser) return alert('Provide username to unban');
-
-            const targetId = await fetchTwitchUserId(targetUser, auth.clientId, auth.token);
-            if (!targetId) return alert(`User "${targetUser}" not found.`);
-
-            const url = `https://api.twitch.tv/helix/moderation/bans?broadcaster_id=${auth.broadcasterId}&moderator_id=${auth.userId}&user_id=${targetId}`;
-            const res = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                    'Client-ID': auth.clientId,
-                    'Authorization': 'Bearer ' + auth.token
-                }
-            });
-
-            if (res.status === 204 || res.ok) {
-                alert(`Unbanned @${targetUser}!`);
-                return true;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                handleHelixModError(res.status, errData, `Unban @${targetUser}`);
-                return false;
-            }
-        }
-
-        // Fallback: send as chat message if unrecognized slash command
-        if (clientTmi && clientTmi.readyState() === 'OPEN') {
-            await clientTmi.say(auth.channel, cmd);
-            alert(`Sent command: ${cmd}`);
+        const r = await LF.moderation.run(cmd, auth, extraParams);
+        if (r.ok) {
+            if (r.cleared) chatFeed.innerHTML = '<div class="empty-state"><i class="fa-solid fa-broom"></i><p>Chat was cleared by moderator.</p></div>';
+            alert(r.message);
             return true;
         }
-
+        if (r.unsupported) {
+            // Fallback: send as chat message if unrecognized slash command
+            if (clientTmi && clientTmi.readyState() === 'OPEN') {
+                await clientTmi.say(auth.channel, cmd);
+                alert(`Sent command: ${cmd}`);
+                return true;
+            }
+            return false;
+        }
+        if (r.status) handleHelixModError(r.status, r.error, r.label);
+        else alert(r.message);
+        return false;
     } catch (e) {
         console.error('execModeration error:', e);
         alert('Moderation Error: ' + e.message);
@@ -3067,11 +2804,12 @@ async function checkOAuthRedirect() {
 async function initApp() {
     // A mod logged in from the Mod Panel: send them back there
     try {
-        if (localStorage.getItem('lf_after_login') === 'mod' && !window.location.hash.includes('access_token=')) {
+        const afterLogin = { mod: 'mod.html', deck: 'streamdeck.html' }[localStorage.getItem('lf_after_login')];
+        if (afterLogin && !window.location.hash.includes('access_token=')) {
             const pid = localStorage.getItem('msp_active_profile');
             if (pid && localStorage.getItem(`msp_${pid}_oauth`)) {
                 localStorage.removeItem('lf_after_login');
-                window.location.href = 'mod.html';
+                window.location.href = afterLogin;
                 return;
             }
         }
@@ -3845,7 +3583,7 @@ function pointsRedeemed(user, title, cost, input) {
 // Mods: share setup, manage mods, run actions mods send
 // ==========================================
 const TEAM_API = '/.netlify/functions/team';
-const team = { mods: [], timer: null, pushTimer: null, active: false, me: '' };
+const team = { mods: [], timer: null, pushTimer: null, active: false, me: '', deck: false };
 
 async function teamFetch(path, opts) {
     const h = twitchAuthHeader();
@@ -3868,7 +3606,7 @@ function sharedSetup() {
     };
 }
 function pushSharedSetupSoon() {
-    if (!team.mods.length) return;
+    if (!team.mods.length && !team.deck) return;
     clearTimeout(team.pushTimer);
     team.pushTimer = setTimeout(() => {
         teamFetch('', { method: 'POST', body: JSON.stringify({ op: 'shared', data: sharedSetup() }) }).catch(e => console.warn('[LightFeed] share failed', e));
@@ -3937,7 +3675,7 @@ function modToast(by, text) {
 function runModAction(a) {
     if (!a || !a.type) return;
     if (a.at && Date.now() - a.at > 2 * 60 * 1000) return; // too old, skip
-    const by = a.by || 'mod';
+    const by = a.via === 'deck' ? 'Phone Stream Deck' : (a.by || 'mod');
     const connected = clientTmi && typeof clientTmi.readyState === 'function' && clientTmi.readyState() === 'OPEN';
     const needsChat = ['deck', 'hype', 'poll_start', 'poll_end', 'giveaway_start', 'giveaway_pick', 'trivia'].includes(a.type);
     if (needsChat && !connected) { logModActivity(by, `tried "${a.title || a.type}" but your bot isn't connected`); return; }
@@ -3976,7 +3714,7 @@ function runModAction(a) {
     } finally {
         setTimeout(() => { window.alert = realAlert; }, 0);
     }
-    if (text) { logModActivity(by, text); modToast(by, text); }
+    if (text) { logModActivity(by, text); if (a.via !== 'deck') modToast(by, text); }
 }
 
 function scheduleRelayPoll(ms) {
@@ -3984,12 +3722,14 @@ function scheduleRelayPoll(ms) {
     team.timer = setTimeout(relayPoll, ms);
 }
 async function relayPoll() {
-    if (!team.mods.length) { setRelayStatus('Add a mod to turn this on.', ''); return; }
+    if (!team.mods.length) setRelayStatus('Add a mod to turn this on.', '');
+    // The owner's phone Stream Deck also sends actions (sounds) through this relay
+    if (!team.mods.length && !team.deck) return;
     try {
         const d = await teamFetch('?relay=1');
         (d.actions || []).forEach(runModAction);
-        team.active = !!d.modsActive;
-        setRelayStatus(team.active ? '✅ A mod is online. Their presses run within a few seconds.' : '✅ Ready. Waiting for a mod to open their panel.', 'ok');
+        team.active = !!d.modsActive || !!d.deckActive;
+        if (team.mods.length) setRelayStatus(d.modsActive ? '✅ A mod is online. Their presses run within a few seconds.' : '✅ Ready. Waiting for a mod to open their panel.', 'ok');
         scheduleRelayPoll(document.hidden && !team.active ? 30000 : (team.active ? 2500 : 20000));
     } catch (e) {
         setRelayStatus('Couldn\'t reach LightFeed. Retrying…', 'warn');
@@ -4003,9 +3743,11 @@ async function initTeam() {
     if (!twitchAuthHeader()) return;
     try {
         const mine = await teamFetch('?mine=1');
-        team.me = mine.owner; team.mods = mine.mods || [];
+        team.me = mine.owner; team.mods = mine.mods || []; team.deck = !!mine.deck;
         renderTeam();
-        if (team.mods.length) {
+        const deckLink = document.getElementById('btnOpenStreamDeck');
+        if (deckLink && team.deck) deckLink.style.display = '';
+        if (team.mods.length || team.deck) {
             teamFetch('', { method: 'POST', body: JSON.stringify({ op: 'shared', data: sharedSetup() }) }).catch(() => {});
             scheduleRelayPoll(1000);
         }
@@ -4048,6 +3790,6 @@ async function initTeam() {
         copy.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
         setTimeout(() => { copy.innerHTML = '<i class="fa-solid fa-copy"></i> Copy'; }, 1500);
     });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && team.mods.length) scheduleRelayPoll(300); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && (team.mods.length || team.deck)) scheduleRelayPoll(300); });
     setTimeout(initTeam, 1200);
 })();

@@ -138,6 +138,74 @@ Simply navigate to:
 
 ---
 
+## 📱 Phone Stream Deck (Meld Studio)
+
+`streamdeck.html` is a phone-friendly control pad for **Meld Studio**. Open it at **https://lightfeed.netlify.app/streamdeck.html** (or tap **Stream Deck** next to your account name on the dashboard).
+
+It gives you big tiles for:
+- **Scenes**: loaded from Meld automatically. The scene that's on air is highlighted.
+- **Mic**: mute / unmute your mic track, with its current state.
+- **Go Live / End Stream**: needs a second tap within a few seconds, so you can't end the stream by accident.
+- **Soundboard**: your dashboard's sounds. They play **on your PC** through the LightFeed dashboard, so keep the dashboard open while you stream.
+- **Quick Mod Desk**: emote-only, slow mode, sub-only, clear chat (two taps), timeouts and custom mod commands.
+
+Only the Twitch accounts listed in `DECK_OWNERS` (in `public/streamdeck.js` **and** `netlify/functions/team.mjs`) can open it. Everyone else, including your LightFeed mods, sees "This page is private." Log in to LightFeed with that Twitch account on your phone first.
+
+### How the phone reaches Meld
+
+Meld Studio has a remote-control API (its *WebChannel* API) on your PC at `127.0.0.1:13376`. LightFeed is an `https://` site, and phones can only open secure (`wss://`) connections from it, so you run a free **Cloudflare Tunnel** on the PC that gives Meld a temporary secure address.
+
+### 1. Turn on Meld's API
+
+In Meld Studio's settings, make sure the WebChannel (remote control) API is enabled. Integrations like Streamer.bot and Bitfocus Companion use the same setting. The default port is **13376**.
+
+### 2. Install cloudflared on Windows
+
+Open PowerShell and run:
+
+```powershell
+winget install --id Cloudflare.cloudflared
+```
+
+Close and reopen PowerShell, then check it worked:
+
+```powershell
+cloudflared --version
+```
+
+(No winget? Download `cloudflared-windows-amd64.exe` from https://github.com/cloudflare/cloudflared/releases/latest, rename it to `cloudflared.exe`, and run it from the folder you saved it in.)
+
+### 3. Start the tunnel (every time you stream)
+
+With Meld Studio open, run:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:13376
+```
+
+After a few seconds it prints an address like `https://random-words-here.trycloudflare.com`. Leave that window open while you stream. Closing it closes the tunnel.
+
+### 4. Connect your phone
+
+1. On your phone, open `https://lightfeed.netlify.app/streamdeck.html` and log in with Twitch if asked.
+2. Tap the ⚙️ settings button, paste the `https://…trycloudflare.com` address, and tap **Save & connect**.
+3. Pick your mic under **Mic track** (it picks a track with "mic" in its name by default).
+
+The address is saved on that phone only (never in the code or on the LightFeed server). The status pill shows **Connected**, **Reconnecting…** or **Offline**, and the page reconnects by itself if the connection drops or your phone wakes up.
+
+**Quick tunnels get a new address every time you start them**, so paste the new one in settings each stream.
+
+### ⚠️ Keep the tunnel address private
+
+Meld's API has no password. **Anyone who knows your tunnel address can control Meld** (switch scenes, mute you, end your stream) for as long as the tunnel is running. So:
+- Don't show the cloudflared window or the settings screen on stream.
+- Close the tunnel (Ctrl+C in that window) when you finish streaming.
+- If the address leaks, close the tunnel and start a new one to get a new address.
+
+The LightFeed login only hides the page; it can't lock Meld itself. For a permanent address with a login in front of it, you can set up a named Cloudflare Tunnel with Cloudflare Access instead (needs a domain on Cloudflare).
+
+---
+
 ## 🛠️ Project Architecture
 
 ```
@@ -146,6 +214,10 @@ mightystreampulse/
 │   ├── index.html       # Main streamer dashboard & command deck
 │   ├── login.html       # Streamer authentication & profile picker
 │   ├── overlay.html     # OBS Studio browser source overlay
+│   ├── mod.html/mod.js  # Mod Panel for your LightFeed mods
+│   ├── streamdeck.html  # Phone Stream Deck for Meld Studio (streamdeck.js)
+│   ├── meld-client.js   # Meld Studio WebChannel client with auto-reconnect
+│   ├── lf-shared.js     # Shared helpers: theme + Quick Mod Desk engine
 │   ├── app.js           # Core client application & Twitch IRC engine
 │   ├── style.css        # Cyberpunk neon UI, animations & responsive grid
 │   ├── tmi.min.js       # Bundled local Twitch Messaging Interface library

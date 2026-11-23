@@ -5,7 +5,7 @@
 (function () {
     const API = '/.netlify/functions/team';
     const $ = (id) => document.getElementById(id);
-    const esc = (t) => { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; };
+    const esc = LF.esc;
 
     const profileId = localStorage.getItem('msp_active_profile');
     const token = profileId ? (localStorage.getItem(`msp_${profileId}_oauth`) || '').replace(/^oauth:/, '') : '';
@@ -34,21 +34,7 @@
     }
 
     // ---------- Theme ----------
-    const BGS = {
-        charcoal: ['#09090b', '#121215', '#18181c', '#222228', '#27272f', '#3f3f4e'],
-        midnight: ['#070b16', '#0d1324', '#121a30', '#19233d', '#1f2a44', '#33415f'],
-        black: ['#000000', '#0a0a0a', '#111111', '#1a1a1a', '#222222', '#3a3a3a'],
-        plum: ['#0d0710', '#150c1a', '#1c1022', '#26162e', '#2e1c38', '#4a2e5a']
-    };
-    function rgb(hex) { const n = parseInt((hex || '').replace('#', ''), 16); return isNaN(n) ? null : [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-    function applyTheme(t) {
-        if (!t) return;
-        const r = document.documentElement.style;
-        if (/^#[0-9a-f]{6}$/i.test(t.primary || '')) { r.setProperty('--primary', t.primary); r.setProperty('--primary-rgb', rgb(t.primary).join(', ')); }
-        if (/^#[0-9a-f]{6}$/i.test(t.accent || '')) { r.setProperty('--accent', t.accent); r.setProperty('--accent-rgb', rgb(t.accent).join(', ')); }
-        const b = BGS[t.bg];
-        if (b) ['--bg-base', '--bg-surface', '--bg-card', '--bg-card-hover', '--border-subtle', '--border-bright'].forEach((v, i) => r.setProperty(v, b[i]));
-    }
+    const applyTheme = LF.applyTheme;
 
     // ---------- Render ----------
     function iconClass(icon) {
