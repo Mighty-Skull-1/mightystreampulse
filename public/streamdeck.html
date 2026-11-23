@@ -37,7 +37,27 @@
         .sd-status.reconnecting .dot { animation: sdPulse 1s ease-in-out infinite; }
         .sd-status.offline { color: #f87171; border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.12); }
         @keyframes sdPulse { 50% { opacity: .25; } }
-        .sd-reason { font-size: .78rem; color: var(--text-secondary); margin: -4px 0 12px; min-height: 1em; }
+        .sd-reason { font-size: .78rem; color: var(--text-secondary); margin: -4px 0 12px; }
+        .sd-reason:empty { display: none; }
+        .tile .sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        /* Short phone screens: smaller tiles so more fit */
+        @media (max-height: 740px) and (orientation: portrait) {
+            .tile { min-height: 96px; padding: 10px 8px; gap: 6px; }
+            .tile i { font-size: 1.6rem; }
+            .tile.scene, .tile.sound { min-height: 84px; }
+        }
+        /* Phones turned sideways */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .sd-wrap { padding-top: calc(6px + env(safe-area-inset-top)); }
+            .sd-top { margin-bottom: 8px; }
+            .sd-main { grid-template-columns: minmax(180px, 28%) 1fr; }
+            .sd-controls { grid-template-columns: 1fr !important; gap: 8px; }
+            .tile { min-height: 78px; padding: 8px; gap: 4px; }
+            .tile i { font-size: 1.35rem; }
+            .tile .label { font-size: .9rem; }
+            .tile.scene, .tile.sound { min-height: 72px; }
+            .sd-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+        }
 
         /* Layout: controls + tabs. Side-by-side in landscape */
         .sd-main { display: grid; gap: 14px; }

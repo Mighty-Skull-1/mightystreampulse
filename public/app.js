@@ -3793,3 +3793,23 @@ async function initTeam() {
     document.addEventListener('visibilitychange', () => { if (!document.hidden && (team.mods.length || team.deck)) scheduleRelayPoll(300); });
     setTimeout(initTeam, 1200);
 })();
+
+// ==========================================
+// Phone layout: slide-out menu, chat starts closed
+// ==========================================
+(function setupMobileLayout() {
+    const mq = window.matchMedia('(max-width: 860px)');
+    const btn = document.getElementById('btnMobileNav');
+    const backdrop = document.getElementById('mobileNavBackdrop');
+    const setNav = (open) => document.body.classList.toggle('nav-open', !!open);
+    if (btn) btn.addEventListener('click', () => setNav(!document.body.classList.contains('nav-open')));
+    if (backdrop) backdrop.addEventListener('click', () => setNav(false));
+    document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => { if (mq.matches) setNav(false); }));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setNav(false); });
+    const onChange = () => {
+        if (!mq.matches) setNav(false);
+        else if (chatDrawer && !chatDrawer.classList.contains('hidden')) chatDrawer.classList.add('hidden');
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange);
+    if (mq.matches && chatDrawer) chatDrawer.classList.add('hidden');
+})();

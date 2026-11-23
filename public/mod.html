@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#09090b">
     <title>Mod Panel - LightFeed</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -42,6 +43,31 @@
         .mp-toast { background: var(--bg-card); border: 1px solid var(--accent); color: var(--text-primary); padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: .88rem; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
         .mp-toast.err { border-color: #f87171; color: #fca5a5; }
         .mp-hype { margin-left: auto; }
+
+        /* Phones */
+        @media (max-width: 640px) {
+            .mp-wrap { padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+            .mp-top { gap: 10px; margin-bottom: 12px; }
+            .mp-brand .badge { width: 36px; height: 36px; }
+            .mp-brand h1 { font-size: 1rem; }
+            .mp-right { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+            .mp-right select { grid-column: 1 / -1; width: 100%; min-height: 44px; }
+            .mp-right .mp-pill { grid-column: 1 / -1; text-align: center; }
+            .mp-right .btn { justify-content: center; min-height: 44px; margin: 0; }
+            .mp-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; border-radius: 12px; background: var(--bg-surface); border: 1px solid var(--border-subtle); position: sticky; top: 0; z-index: 5; margin-bottom: 12px; }
+            .mp-tab { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; font-size: .68rem; border: 0; background: transparent; line-height: 1.15; text-align: center; }
+            .mp-tab i { font-size: 1rem; }
+            .mp-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+            .mp-grid .action-card { padding: 12px; }
+            .mp-grid .action-card .card-top > div { min-width: 0; overflow: hidden; }
+            .mp-grid .action-card .card-badge { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .mp-games { grid-template-columns: 1fr; gap: 12px; }
+            .mp-card { padding: 14px; }
+            .mp-card input, .mp-card select, .mp-right select { font-size: 16px; }
+            .mp-row .btn { min-height: 44px; }
+            .mp-grid .action-card, .sb-pad, .mp-tab, .btn { touch-action: manipulation; }
+            #mpToasts { bottom: calc(16px + env(safe-area-inset-bottom)); width: max-content; max-width: 92vw; }
+        }
     </style>
 </head>
 <body>
